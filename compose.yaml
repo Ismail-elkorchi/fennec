@@ -1,0 +1,26 @@
+services:
+  php85:
+    build:
+      context: .
+      dockerfile: tools/dev/php/Dockerfile
+      args:
+        PHP_VERSION: "8.5"
+    volumes:
+      - ./:/app
+    working_dir: /app
+
+  php84:
+    build:
+      context: .
+      dockerfile: tools/dev/php/Dockerfile
+      args:
+        PHP_VERSION: "8.4"
+    volumes:
+      - ./:/app
+    working_dir: /app
+
+  go:
+    image: golang:1.25
+    volumes:
+      - ./:/app
+    working_dir: /app

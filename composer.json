@@ -3,7 +3,7 @@
   "description": "Fennec control plane bootstrap",
   "type": "project",
   "require": {
-    "php": ">=8.5"
+    "php": ">=8.4"
   },
   "require-dev": {
     "phpunit/phpunit": "^10.5",

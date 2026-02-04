@@ -8,7 +8,7 @@ This document pins the baseline tech choices for Fennec.
 - Ubuntu 26.04 LTS will be added after its release (scheduled 2026-04-23)
 
 ## Controller (API + WebUI)
-- Language: PHP 8.5 (CI pins 8.5; local dev may override tooling as needed)
+- Language: PHP >= 8.4 (primary tested version is PHP 8.5; CI pins 8.5)
 - Web server: NGINX stable
 - Runtime: php-fpm
 - UI: server-rendered HTML using pure PHP templates, minimal vanilla JS
