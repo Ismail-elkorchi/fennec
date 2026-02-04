@@ -1,5 +1,5 @@
 ARG PHP_VERSION=8.5
-FROM php:${PHP_VERSION}-cli-bookworm
+FROM php:${PHP_VERSION}-cli-trixie
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \

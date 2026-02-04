@@ -32,3 +32,7 @@ make test-php84
 - Docker permission denied: run `sudo usermod -aG docker $USER` then `newgrp docker`.
 - Docker Compose missing: rerun `sudo ./tools/dev/setup-ubuntu-25.10-docker.sh`.
 - Composer install fails inside container: rerun `make test` (the container installs dependencies into `vendor/`).
+
+## Notes
+- If Docker requires sudo, use `sudo docker ...` (and `sudo make test`) until group membership is configured.
+- Rootless Docker is an alternative for development: https://docs.docker.com/engine/security/rootless/

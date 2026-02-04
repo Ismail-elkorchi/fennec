@@ -34,6 +34,44 @@ TBD.
 
 ---
 
+## ADR-0003: Dev/Test Environment via Docker on Ubuntu 25.10
+Status: Accepted
+Date: 2026-02-04
+
+### Context
+Local tests must be reproducible on Ubuntu 25.10 without relying on host PHP/Go packages. The project baseline is Debian 13 (trixie) as the latest stable, but the prior dev container base used Debian 12 (bookworm), which conflicts with the latest stable/LTS alignment goal.
+
+### Decision
+- Use Docker Engine from the official Docker apt repository for local dev/testing on Ubuntu 25.10.
+- Run PHP tests in a container built from `php:${PHP_VERSION}-cli-trixie`.
+- Run Go tests in `golang:1.25.6-trixie`.
+- Use `compose.yaml` and Makefile targets to run tests via `docker compose run --rm`.
+- If Docker requires sudo, use `sudo docker` and `sudo make test` until group membership is configured.
+
+### Alternatives Considered
+- Host toolchains for PHP and Go (rejected due to OS package availability and reproducibility concerns).
+- Rootless Docker (kept as an option to revisit once baseline setup is stable).
+- Podman (not selected to minimize divergence from CI/official Docker docs).
+
+### Evidence
+- `./tools/dev/doctor.sh` reports Docker missing on the current host and guides setup.
+- `docker --version` and `docker compose version` were attempted but failed because Docker is not yet installed.
+- `make test` and `make test-php84` were attempted but failed because `make` is not installed on the host.
+
+### Falsifiers
+- Docker becomes unavailable or unsupported on the target OS.
+- Required images no longer provide Debian 13 (trixie) variants.
+- Security policy mandates rootless-only containers for development.
+
+### Unknowns
+- Confirm `php:${PHP_VERSION}-cli-trixie` availability for both 8.4 and 8.5 in the official image list.
+- Whether rootless Docker should be required for developers (pending a separate review).
+
+### Review-By
+2026-05-05
+
+---
+
 ## ADR-0002: Fennec Technology Stack (v0.1)
 Status: Accepted
 Date: 2026-02-04
