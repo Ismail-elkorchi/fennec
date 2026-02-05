@@ -181,3 +181,9 @@ M1: Architecture skeleton (next step after bootstrap)
 - Auth placeholder
 - State store placeholder
 - Minimal end-to-end request -> job -> agent noop execution
+
+---
+
+## 10) Vision references
+- docs/vision/competitive-landscape.md
+- docs/vision/north-star-metrics.md
