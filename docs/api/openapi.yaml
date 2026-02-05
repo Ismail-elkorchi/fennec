@@ -13,6 +13,8 @@ servers:
 tags:
   - name: meta
     description: Metadata and health endpoints.
+  - name: agent
+    description: Agent-facing job endpoints.
 paths:
   /healthz:
     get:
@@ -77,6 +79,88 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /agent/v1/jobs/claim:
+    post:
+      summary: Claim next job
+      description: Claims the next available job for an authenticated agent.
+      operationId: claimAgentJob
+      tags:
+        - agent
+      security:
+        - AgentToken: []
+      responses:
+        '200':
+          description: Job claimed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '204':
+          description: No jobs available.
+        '401':
+          description: Unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: Database unavailable.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /agent/v1/jobs/{id}/complete:
+    post:
+      summary: Complete a job
+      description: Marks a job as succeeded or failed for the authenticated agent.
+      operationId: completeAgentJob
+      tags:
+        - agent
+      security:
+        - AgentToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobCompleteRequest'
+      responses:
+        '200':
+          description: Job updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '400':
+          description: Invalid request.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Job conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: Database unavailable.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /openapi.yaml:
     get:
       summary: OpenAPI specification in YAML
@@ -113,6 +197,10 @@ components:
       bearerFormat: token
     AgentMTLS:
       type: mutualTLS
+    AgentToken:
+      type: http
+      scheme: bearer
+      bearerFormat: token
   schemas:
     HealthStatus:
       type: object
@@ -137,6 +225,76 @@ components:
           type: string
           enum:
             - ok
+    JobResponse:
+      type: object
+      required:
+        - job
+      properties:
+        job:
+          $ref: '#/components/schemas/Job'
+    JobCompleteRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - succeeded
+            - failed
+        result:
+          type: object
+          additionalProperties: true
+        error:
+          type: string
+    Job:
+      type: object
+      required:
+        - id
+        - type
+        - payload
+        - status
+        - created_at
+        - scheduled_at
+        - attempt
+        - max_attempts
+        - result
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+        created_at:
+          type: string
+        scheduled_at:
+          type: string
+        locked_at:
+          type: string
+          nullable: true
+        started_at:
+          type: string
+          nullable: true
+        finished_at:
+          type: string
+          nullable: true
+        attempt:
+          type: integer
+        max_attempts:
+          type: integer
+        locked_by_agent_id:
+          type: integer
+          nullable: true
+        result:
+          type: object
+          additionalProperties: true
+        last_error:
+          type: string
+          nullable: true
     VersionInfo:
       type: object
       required:

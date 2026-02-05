@@ -4,8 +4,10 @@
 declare(strict_types=1);
 
 use Fennec\AdminCreator;
+use Fennec\AgentRepository;
 use Fennec\Config;
 use Fennec\Database;
+use Fennec\JobRepository;
 use Fennec\MigrationRunner;
 
 $autoload = __DIR__ . '/../vendor/autoload.php';
@@ -21,6 +23,8 @@ Fennec CLI
 Usage:
   bin/fennec migrate
   bin/fennec create-admin --email=you@example.com --password=secret
+  bin/fennec create-agent --name=local-agent
+  bin/fennec enqueue-noop
 TEXT;
     fwrite(STDERR, $message . PHP_EOL);
 }
@@ -68,6 +72,26 @@ switch ($command) {
         $creator = new AdminCreator($db, $config);
         $userId = $creator->createAdmin($email, $password);
         fwrite(STDOUT, "Admin created with id {$userId}.\n");
+        exit(0);
+    case 'create-agent':
+        $options = getopt('', ['name:']);
+        $name = $options['name'] ?? '';
+        if ($name === '') {
+            usage();
+            exit(1);
+        }
+        $agents = new AgentRepository($db, $config);
+        $agent = $agents->create($name);
+        fwrite(STDOUT, json_encode($agent, JSON_UNESCAPED_SLASHES) . PHP_EOL);
+        exit(0);
+    case 'enqueue-noop':
+        $jobs = new JobRepository($db);
+        $job = $jobs->enqueue('noop', []);
+        $output = [
+            'job_id' => $job['id'],
+            'type' => $job['type'],
+        ];
+        fwrite(STDOUT, json_encode($output, JSON_UNESCAPED_SLASHES) . PHP_EOL);
         exit(0);
     default:
         usage();

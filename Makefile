@@ -27,7 +27,7 @@ lint-php:
 
 test:
 	$(DCRUN_PHP85) composer install --no-interaction --prefer-dist
-	$(DCRUN_PHP85) vendor/bin/phpunit --colors=always
+	$(DCRUN_PHP85) vendor/bin/phpunit --colors=always --exclude-group db
 	$(DCRUN_PHP85) vendor/bin/phpstan analyse -c phpstan.neon
 	$(DCRUN_GO) --workdir /app/agent go go test ./...
 
@@ -37,7 +37,7 @@ stan:
 
 test-php84:
 	$(DCRUN_PHP84) composer install --no-interaction --prefer-dist
-	$(DCRUN_PHP84) vendor/bin/phpunit --colors=always
+	$(DCRUN_PHP84) vendor/bin/phpunit --colors=always --exclude-group db
 	$(DCRUN_PHP84) vendor/bin/phpstan analyse -c phpstan.neon
 
 db-up:

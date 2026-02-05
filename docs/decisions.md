@@ -208,3 +208,54 @@ Authentication bootstrap requires a safe password hashing baseline.
 
 ### Review-By
 2026-05-05
+
+---
+
+## ADR-0006: Job Execution Spine: Postgres Queue + Agent Pull + Token Auth (mTLS Later)
+Status: Accepted
+Date: 2026-02-05
+
+### Context
+The controller needs a deterministic, auditable job queue for agent execution.
+The agent must authenticate and claim work without a heavy message broker.
+We need a minimal, testable workflow that supports concurrency and future hardening.
+
+### Decision
+- Use a Postgres-backed job queue with `SELECT ... FOR UPDATE SKIP LOCKED` to claim jobs.
+- Agents authenticate via bearer tokens in the format `<agent_id>.<secret>` for O(1) lookup.
+- Token secrets are stored as Argon2id hashes.
+- Agent-facing endpoints support claim and complete flows under `/agent/v1`.
+- Job ownership conflicts return HTTP 409 to signal an invalid completion attempt.
+- mTLS remains the long-term goal for agent authentication but is not implemented yet.
+
+### Alternatives Considered
+- External broker (Redis/RabbitMQ/SQS).
+- Cron-based polling and filesystem queues.
+- Controller-only execution without agents.
+
+### Tradeoffs
+- SKIP LOCKED provides queue-like behavior but can return an inconsistent view of the table.
+- DB queues are simpler to operate but concentrate load on Postgres.
+- Bearer tokens are easy to bootstrap but weaker than mTLS.
+
+### Evidence
+- Postgres SKIP LOCKED is intended for queue-like tables:
+  https://www.postgresql.org/docs/current/sql-select.html
+- Example queue pattern with SKIP LOCKED:
+  https://neon.com/guides/queue-system
+- Problem Details standard:
+  https://www.rfc-editor.org/rfc/rfc9457.html
+- IANA media type for application/problem+json:
+  https://www.iana.org/assignments/media-types/application/problem%2Bjson
+
+### Falsifiers
+- Postgres becomes a bottleneck or unavailable in target environments.
+- Agents require stronger authentication guarantees before beta rollout.
+- Operational evidence favors an external broker.
+
+### Unknowns
+- When to require idempotency keys for all job types.
+- How to bind tokens to certs during the mTLS transition.
+
+### Review-By
+2026-05-05

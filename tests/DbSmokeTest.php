@@ -14,18 +14,18 @@ final class DbSmokeTest extends TestCase
     public function testMigrationsAndAdminBootstrap(): void
     {
         if (getenv('FENNEC_DB_DSN') === false) {
-            $this->markTestSkipped('Database environment not configured.');
+            $this->fail('Database environment not configured.');
         }
 
         $config = Config::fromEnv();
         $db = Database::connect($config);
 
-        $version = $db->fetchColumn(
-            'SELECT version FROM schema_migrations WHERE version = :version',
-            [':version' => '001_init.sql']
+        $count = $db->fetchColumn(
+            'SELECT COUNT(*) FROM schema_migrations WHERE version IN (:v1, :v2)',
+            [':v1' => '001_init.sql', ':v2' => '002_agents_jobs.sql']
         );
 
-        $this->assertSame('001_init.sql', $version);
+        $this->assertSame('2', (string) $count);
 
         $email = 'admin+' . bin2hex(random_bytes(4)) . '@example.test';
         $creator = new AdminCreator($db, $config);
