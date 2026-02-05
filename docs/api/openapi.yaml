@@ -1,0 +1,142 @@
+openapi: 3.1.0
+info:
+  title: Fennec Control Plane API
+  version: 0.1.0
+  description: |
+    Contract-first baseline for the Fennec control plane.
+    This spec is the source of truth for UI, CLI, agent, and integrations.
+  contact:
+    name: Fennec Maintainers
+    url: https://github.com/Ismail-elkorchi/fennec
+servers:
+  - url: /
+tags:
+  - name: meta
+    description: Metadata and health endpoints.
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      description: Returns service health for load balancers and probes.
+      operationId: getHealthz
+      tags:
+        - meta
+      security: []
+      responses:
+        '200':
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '500':
+          description: Service error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /version:
+    get:
+      summary: Build and version metadata
+      description: Returns build and version information for the running service.
+      operationId: getVersion
+      tags:
+        - meta
+      security: []
+      responses:
+        '200':
+          description: Version details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionInfo'
+        '500':
+          description: Service error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /openapi.yaml:
+    get:
+      summary: OpenAPI specification in YAML
+      description: Returns the current OpenAPI document for this service.
+      operationId: getOpenApiYaml
+      tags:
+        - meta
+      security: []
+      responses:
+        '200':
+          description: OpenAPI YAML document.
+          content:
+            application/yaml:
+              schema:
+                type: string
+            text/yaml:
+              schema:
+                type: string
+        '500':
+          description: Spec unavailable.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+components:
+  securitySchemes:
+    SessionCookie:
+      type: apiKey
+      in: cookie
+      name: fennec_session
+    ApiToken:
+      type: http
+      scheme: bearer
+      bearerFormat: token
+    AgentMTLS:
+      type: mutualTLS
+  schemas:
+    HealthStatus:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+    VersionInfo:
+      type: object
+      required:
+        - name
+        - version
+        - commit
+        - build_time
+      properties:
+        name:
+          type: string
+        version:
+          type: string
+        commit:
+          type: string
+        build_time:
+          type: string
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+      additionalProperties: true

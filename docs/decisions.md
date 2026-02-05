@@ -113,3 +113,52 @@ Fennec needs a small, reliable control plane with a privileged agent. The WebUI 
 
 ### Review-By
 2026-05-05
+
+---
+
+## ADR-0004: Contract-First API + Lint Governance
+Status: Accepted
+Date: 2026-02-05
+
+### Context
+Fennec needs a stable, versioned API contract that the UI, CLI, and agent can trust.
+We also need enforceable linting rules to keep the contract and documentation consistent in CI.
+Tooling support for the most recent OpenAPI versions is still uneven.
+
+### Decision
+- Adopt a contract-first approach with a canonical OpenAPI document at `docs/api/openapi.yaml`.
+- Use OpenAPI 3.1.0 for maximum tool compatibility today, with a planned upgrade to 3.1.2 or 3.2.x once ecosystem support is reliable.
+- Standardize error responses on RFC 9457 Problem Details (`application/problem+json`).
+- Define baseline security schemes in the contract: session cookie, bearer token, and mutual TLS for agents.
+- Enforce linting via Docker-pinned tools:
+  - Spectral (`stoplight/spectral:6.15.0`) for OpenAPI.
+  - markdownlint-cli2 (`davidanson/markdownlint-cli2:v0.20.0`) for Markdown.
+- CI runs `make lint` to ensure the contract and docs remain consistent.
+
+### Alternatives Considered
+- Framework-first implementation (Laravel/Symfony) without a contract-first spec.
+- OpenAPI 3.0.x for broader compatibility, or OpenAPI 3.2.x for latest features.
+- Ad hoc endpoint documentation instead of a single OpenAPI source of truth.
+- Host-installed lint tooling instead of Docker-pinned, reproducible tools.
+
+### Tradeoffs
+- OpenAPI 3.1.0 is not the newest version, but it is reliably supported by current tooling.
+- Docker-based linting adds image pull time but improves reproducibility and avoids host tool drift.
+- Minimal stub endpoints do not cover full product scope but provide a testable contract baseline.
+
+### Evidence
+- `docs/api/openapi.yaml` defines the initial contract and problem+json schema.
+- `tools/dev/lint-openapi.sh` and `tools/dev/lint-md.sh` run linting via pinned Docker images.
+- `make lint` is wired to the lint scripts, and CI runs it.
+
+### Falsifiers
+- Spectral and ecosystem tools fully support OpenAPI 3.1.2 or 3.2.x without regressions.
+- Contract-first slows delivery or causes frequent spec/implementation drift.
+- RFC 9457 proves incompatible with operational needs or client requirements.
+
+### Unknowns
+- Whether agent mutual TLS will require additional OpenAPI tooling accommodations.
+- Future versioning strategy once public clients are onboarded.
+
+### Review-By
+2026-05-05
