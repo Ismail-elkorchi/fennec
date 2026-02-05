@@ -12,7 +12,7 @@ DCRUN_PHP84 := $(COMPOSE) run --rm --user $(UID):$(GID) -e HOME=/tmp -e COMPOSER
 DCRUN_GO := $(COMPOSE) run --rm --user $(UID):$(GID) -e HOME=/tmp
 DCRUN_PHP85_DB := $(COMPOSE) run --rm --user $(UID):$(GID) -e HOME=/tmp -e COMPOSER_CACHE_DIR=/tmp/composer-cache $(DB_ENV) php85
 
-.PHONY: lint lint-md lint-openapi lint-php test stan test-php84 db-up db-wait db-down db-reset migrate test-db
+.PHONY: lint lint-md lint-openapi lint-php test stan test-php84 db-up db-wait db-down db-reset migrate test-db requeue-expired
 
 lint: lint-md lint-openapi lint-php
 
@@ -63,6 +63,9 @@ db-reset:
 
 migrate:
 	COMPOSE_PROFILES=db $(DCRUN_PHP85_DB) php bin/fennec migrate
+
+requeue-expired:
+	COMPOSE_PROFILES=db $(DCRUN_PHP85_DB) php bin/fennec requeue-expired
 
 test-db: db-up db-wait migrate
 	COMPOSE_PROFILES=db $(DCRUN_PHP85_DB) vendor/bin/phpunit --colors=always --group db

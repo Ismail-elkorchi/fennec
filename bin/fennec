@@ -25,6 +25,7 @@ Usage:
   bin/fennec create-admin --email=you@example.com --password=secret
   bin/fennec create-agent --name=local-agent
   bin/fennec enqueue-noop
+  bin/fennec requeue-expired
 TEXT;
     fwrite(STDERR, $message . PHP_EOL);
 }
@@ -92,6 +93,11 @@ switch ($command) {
             'type' => $job['type'],
         ];
         fwrite(STDOUT, json_encode($output, JSON_UNESCAPED_SLASHES) . PHP_EOL);
+        exit(0);
+    case 'requeue-expired':
+        $jobs = new JobRepository($db);
+        $count = $jobs->requeueExpired();
+        fwrite(STDOUT, json_encode(['requeued' => $count], JSON_UNESCAPED_SLASHES) . PHP_EOL);
         exit(0);
     default:
         usage();

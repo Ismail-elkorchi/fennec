@@ -12,6 +12,7 @@ final class Config
     private int $passwordMemoryCost;
     private int $passwordTimeCost;
     private int $passwordThreads;
+    private int $jobLeaseSeconds;
 
     private function __construct(
         string $dbDsn,
@@ -19,7 +20,8 @@ final class Config
         string $dbPassword,
         int $passwordMemoryCost,
         int $passwordTimeCost,
-        int $passwordThreads
+        int $passwordThreads,
+        int $jobLeaseSeconds
     ) {
         $this->dbDsn = $dbDsn;
         $this->dbUser = $dbUser;
@@ -27,6 +29,7 @@ final class Config
         $this->passwordMemoryCost = $passwordMemoryCost;
         $this->passwordTimeCost = $passwordTimeCost;
         $this->passwordThreads = $passwordThreads;
+        $this->jobLeaseSeconds = $jobLeaseSeconds;
     }
 
     public static function fromEnv(): self
@@ -48,8 +51,9 @@ final class Config
         $memory = self::envInt('FENNEC_PASSWORD_MEMORY_COST', $memoryDefault);
         $time = self::envInt('FENNEC_PASSWORD_TIME_COST', $timeDefault);
         $threads = self::envInt('FENNEC_PASSWORD_THREADS', $threadsDefault);
+        $leaseSeconds = self::envIntBounded('FENNEC_JOB_LEASE_SECONDS', 60, 10, 3600);
 
-        return new self($dsn, $user, $password, $memory, $time, $threads);
+        return new self($dsn, $user, $password, $memory, $time, $threads, $leaseSeconds);
     }
 
     public function dbDsn(): string
@@ -74,6 +78,11 @@ final class Config
             'time_cost' => $this->passwordTimeCost,
             'threads' => $this->passwordThreads,
         ];
+    }
+
+    public function jobLeaseSeconds(): int
+    {
+        return $this->jobLeaseSeconds;
     }
 
     public function hasDbConfig(): bool
@@ -105,5 +114,19 @@ final class Config
         }
 
         return (int) $value;
+    }
+
+    private static function envIntBounded(string $key, int $default, int $min, int $max): int
+    {
+        $value = self::envInt($key, $default);
+        if ($value < $min) {
+            return $min;
+        }
+
+        if ($value > $max) {
+            return $max;
+        }
+
+        return $value;
     }
 }

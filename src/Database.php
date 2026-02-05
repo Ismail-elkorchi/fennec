@@ -58,6 +58,17 @@ final class Database
         return $row === false ? null : $row;
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function fetchAll(string $sql, array $params = []): array
+    {
+        $statement = $this->pdo->prepare($sql);
+        $statement->execute($params);
+        $rows = $statement->fetchAll();
+        return is_array($rows) ? $rows : [];
+    }
+
     public function fetchColumn(string $sql, array $params = []): mixed
     {
         $statement = $this->pdo->prepare($sql);

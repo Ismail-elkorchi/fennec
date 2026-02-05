@@ -43,6 +43,11 @@ function fennec_route(string $method, string $path, array $options = []): array
         return fennec_agent_claim($headers);
     }
 
+    if ($method === 'POST' && preg_match('#^/agent/v1/jobs/(\\d+)/heartbeat$#', $normalizedPath, $matches)) {
+        $jobId = (int) $matches[1];
+        return fennec_agent_heartbeat($jobId, $headers);
+    }
+
     if ($method === 'POST' && preg_match('#^/agent/v1/jobs/(\\d+)/complete$#', $normalizedPath, $matches)) {
         $jobId = (int) $matches[1];
         return fennec_agent_complete($jobId, $headers, $body);
@@ -158,7 +163,8 @@ function fennec_agent_claim(array $headers): array
     try {
         $jobs = new \Fennec\JobRepository($guard['db']);
         $agents = new \Fennec\AgentRepository($guard['db'], $guard['config']);
-        $job = $jobs->claimNext($auth['agent']['id'], $agents);
+        $leaseSeconds = $guard['config']->jobLeaseSeconds();
+        $job = $jobs->claimNext($auth['agent']['id'], $agents, $leaseSeconds);
     } catch (Throwable $exception) {
         return fennec_problem_response(
             503,
@@ -176,6 +182,43 @@ function fennec_agent_claim(array $headers): array
             ],
             'body' => '',
         ];
+    }
+
+    return fennec_json_response(200, ['job' => $job]);
+}
+
+function fennec_agent_heartbeat(int $jobId, array $headers): array
+{
+    $guard = fennec_db_guard();
+    if (isset($guard['error'])) {
+        return $guard['error'];
+    }
+
+    $auth = fennec_require_agent($guard['db'], $guard['config'], $headers);
+    if (isset($auth['error'])) {
+        return $auth['error'];
+    }
+
+    try {
+        $jobs = new \Fennec\JobRepository($guard['db']);
+        $leaseSeconds = $guard['config']->jobLeaseSeconds();
+        $job = $jobs->heartbeat($jobId, $auth['agent']['id'], $leaseSeconds);
+    } catch (Throwable $exception) {
+        return fennec_problem_response(
+            503,
+            'Database unavailable',
+            'Job heartbeat failed.',
+            FENNEC_PROBLEM_DB_UNAVAILABLE
+        );
+    }
+
+    if ($job === null) {
+        return fennec_problem_response(
+            409,
+            'Job conflict',
+            'Job is not owned by this agent or is not running.',
+            FENNEC_PROBLEM_JOB_CONFLICT
+        );
     }
 
     return fennec_json_response(200, ['job' => $job]);
