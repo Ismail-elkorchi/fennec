@@ -21,11 +21,15 @@ final class DbSmokeTest extends TestCase
         $db = Database::connect($config);
 
         $count = $db->fetchColumn(
-            'SELECT COUNT(*) FROM schema_migrations WHERE version IN (:v1, :v2)',
-            [':v1' => '001_init.sql', ':v2' => '002_agents_jobs.sql']
+            'SELECT COUNT(*) FROM schema_migrations WHERE version IN (:v1, :v2, :v3)',
+            [
+                ':v1' => '001_init.sql',
+                ':v2' => '002_agents_jobs.sql',
+                ':v3' => '003_job_leases.sql',
+            ]
         );
 
-        $this->assertSame('2', (string) $count);
+        $this->assertSame('3', (string) $count);
 
         $email = 'admin+' . bin2hex(random_bytes(4)) . '@example.test';
         $creator = new AdminCreator($db, $config);

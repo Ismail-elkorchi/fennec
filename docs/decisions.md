@@ -222,6 +222,7 @@ We need a minimal, testable workflow that supports concurrency and future harden
 
 ### Decision
 - Use a Postgres-backed job queue with `SELECT ... FOR UPDATE SKIP LOCKED` to claim jobs.
+- Add job leases with heartbeat and a requeue path for expired leases.
 - Agents authenticate via bearer tokens in the format `<agent_id>.<secret>` for O(1) lookup.
 - Token secrets are stored as Argon2id hashes.
 - Agent-facing endpoints support claim and complete flows under `/agent/v1`.
@@ -232,14 +233,19 @@ We need a minimal, testable workflow that supports concurrency and future harden
 - External broker (Redis/RabbitMQ/SQS).
 - Cron-based polling and filesystem queues.
 - Controller-only execution without agents.
+- Advisory locks per job.
+- Long-lived transactions holding locks.
 
 ### Tradeoffs
 - SKIP LOCKED provides queue-like behavior but can return an inconsistent view of the table.
+- Leases add minimal complexity but require a requeue path to avoid stuck jobs.
 - DB queues are simpler to operate but concentrate load on Postgres.
 - Bearer tokens are easy to bootstrap but weaker than mTLS.
 
 ### Evidence
 - Postgres SKIP LOCKED is intended for queue-like tables:
+  https://www.postgresql.org/docs/current/sql-select.html
+- SKIP LOCKED can return an inconsistent view and requires abandoned jobs to be handled explicitly:
   https://www.postgresql.org/docs/current/sql-select.html
 - Example queue pattern with SKIP LOCKED:
   https://neon.com/guides/queue-system

@@ -23,6 +23,10 @@ final class JobAgentFlowDbTest extends TestCase
         $config = Config::fromEnv();
         $db = Database::connect($config);
 
+        $db->execute('DELETE FROM jobs');
+        $db->execute('DELETE FROM agents');
+        $db->execute('DELETE FROM audit_events');
+
         $agents = new AgentRepository($db, $config);
         $agent = $agents->create('test-agent-' . bin2hex(random_bytes(3)));
 

@@ -161,6 +161,46 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /agent/v1/jobs/{id}/heartbeat:
+    post:
+      summary: Heartbeat a job lease
+      description: Extends the lease for a running job owned by the authenticated agent.
+      operationId: heartbeatAgentJob
+      tags:
+        - agent
+      security:
+        - AgentToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Job lease extended.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '401':
+          description: Unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Job conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: Database unavailable.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /openapi.yaml:
     get:
       summary: OpenAPI specification in YAML
@@ -280,6 +320,12 @@ components:
           type: string
           nullable: true
         finished_at:
+          type: string
+          nullable: true
+        heartbeat_at:
+          type: string
+          nullable: true
+        lease_expires_at:
           type: string
           nullable: true
         attempt:
