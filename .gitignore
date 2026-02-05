@@ -1,0 +1,8 @@
+/vendor/
+/.phpunit.result.cache
+/.phpstan.cache
+/artifacts/
+/.cache/
+/.idea/
+.DS_Store
+.env

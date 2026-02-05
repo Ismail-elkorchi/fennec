@@ -54,9 +54,13 @@ Local tests must be reproducible on Ubuntu 25.10 without relying on host PHP/Go 
 - Podman (not selected to minimize divergence from CI/official Docker docs).
 
 ### Evidence
-- `./tools/dev/doctor.sh` reports Docker missing on the current host and guides setup.
-- `docker --version` and `docker compose version` were attempted but failed because Docker is not yet installed.
-- `make test` and `make test-php84` were attempted but failed because `make` is not installed on the host.
+- `docker --version` returns `Docker version 29.2.1, build a5c7197`.
+- `docker compose version` returns `Docker Compose version v5.0.2`.
+- Makefile test targets run containers as the host user via `--user $(UID):$(GID)` and set `HOME=/tmp` and `COMPOSER_CACHE_DIR=/tmp/composer-cache` for deterministic, non-root Composer usage.
+- User-owned artifacts confirmed:
+  - `stat -c '%u:%g %n' composer.lock` -> `1000:1000 composer.lock`.
+  - `stat -c '%u:%g %n' vendor` -> `1000:1000 vendor`.
+- Reproduce: `make test`, `make test-php84`.
 
 ### Falsifiers
 - Docker becomes unavailable or unsupported on the target OS.

@@ -1,22 +1,27 @@
 COMPOSE ?= docker compose
 PHP_SERVICE ?= php85
+UID := $(shell id -u)
+GID := $(shell id -g)
+DCRUN_PHP85 := $(COMPOSE) run --rm --user $(UID):$(GID) -e HOME=/tmp -e COMPOSER_CACHE_DIR=/tmp/composer-cache php85
+DCRUN_PHP84 := $(COMPOSE) run --rm --user $(UID):$(GID) -e HOME=/tmp -e COMPOSER_CACHE_DIR=/tmp/composer-cache php84
+DCRUN_GO := $(COMPOSE) run --rm --user $(UID):$(GID) -e HOME=/tmp
 
 .PHONY: lint test stan test-php84
 
 lint:
-	$(COMPOSE) run --rm $(PHP_SERVICE) php -l public/index.php
+	$(DCRUN_PHP85) php -l public/index.php
 
 test:
-	$(COMPOSE) run --rm $(PHP_SERVICE) composer install --no-interaction --prefer-dist
-	$(COMPOSE) run --rm $(PHP_SERVICE) vendor/bin/phpunit --colors=always
-	$(COMPOSE) run --rm $(PHP_SERVICE) vendor/bin/phpstan analyse -c phpstan.neon
-	$(COMPOSE) run --rm --workdir /app/agent go go test ./...
+	$(DCRUN_PHP85) composer install --no-interaction --prefer-dist
+	$(DCRUN_PHP85) vendor/bin/phpunit --colors=always
+	$(DCRUN_PHP85) vendor/bin/phpstan analyse -c phpstan.neon
+	$(DCRUN_GO) --workdir /app/agent go go test ./...
 
 stan:
-	$(COMPOSE) run --rm $(PHP_SERVICE) composer install --no-interaction --prefer-dist
-	$(COMPOSE) run --rm $(PHP_SERVICE) vendor/bin/phpstan analyse -c phpstan.neon
+	$(DCRUN_PHP85) composer install --no-interaction --prefer-dist
+	$(DCRUN_PHP85) vendor/bin/phpstan analyse -c phpstan.neon
 
 test-php84:
-	$(COMPOSE) run --rm php84 composer install --no-interaction --prefer-dist
-	$(COMPOSE) run --rm php84 vendor/bin/phpunit --colors=always
-	$(COMPOSE) run --rm php84 vendor/bin/phpstan analyse -c phpstan.neon
+	$(DCRUN_PHP84) composer install --no-interaction --prefer-dist
+	$(DCRUN_PHP84) vendor/bin/phpunit --colors=always
+	$(DCRUN_PHP84) vendor/bin/phpstan analyse -c phpstan.neon

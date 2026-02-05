@@ -9,6 +9,12 @@
     "phpunit/phpunit": "^10.5",
     "phpstan/phpstan": "^1.11"
   },
+  "config": {
+    "platform": {
+      "php": "8.4.0"
+    },
+    "sort-packages": true
+  },
   "autoload": {
     "psr-4": {
       "Fennec\\": "controller/src/"
