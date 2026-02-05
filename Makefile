@@ -12,7 +12,7 @@ DCRUN_PHP84 := $(COMPOSE) run --rm --user $(UID):$(GID) -e HOME=/tmp -e COMPOSER
 DCRUN_GO := $(COMPOSE) run --rm --user $(UID):$(GID) -e HOME=/tmp
 DCRUN_PHP85_DB := $(COMPOSE) run --rm --user $(UID):$(GID) -e HOME=/tmp -e COMPOSER_CACHE_DIR=/tmp/composer-cache $(DB_ENV) php85
 
-.PHONY: lint lint-md lint-openapi lint-php test stan test-php84 db-up db-wait db-down db-reset migrate test-db requeue-expired
+.PHONY: lint lint-md lint-openapi lint-php test stan test-php84 db-up db-wait db-down db-reset migrate test-db requeue-expired dev-up dev-down agent-run-once
 
 lint: lint-md lint-openapi lint-php
 
@@ -61,11 +61,22 @@ db-down:
 db-reset:
 	COMPOSE_PROFILES=db $(COMPOSE) down -v
 
+dev-up:
+	UID=$(UID) GID=$(GID) COMPOSE_PROFILES=dev,db $(COMPOSE) up -d db controller
+
+dev-down:
+	UID=$(UID) GID=$(GID) COMPOSE_PROFILES=dev,db $(COMPOSE) down
+
 migrate:
 	COMPOSE_PROFILES=db $(DCRUN_PHP85_DB) php bin/fennec migrate
 
 requeue-expired:
 	COMPOSE_PROFILES=db $(DCRUN_PHP85_DB) php bin/fennec requeue-expired
+
+agent-run-once:
+	@if [ -z "$$FENNEC_AGENT_TOKEN" ]; then echo "FENNEC_AGENT_TOKEN is required"; exit 1; fi
+	@if [ -z "$$FENNEC_CONTROLLER_URL" ]; then echo "FENNEC_CONTROLLER_URL is required"; exit 1; fi
+	$(DCRUN_GO) --workdir /app/agent -e FENNEC_AGENT_TOKEN -e FENNEC_CONTROLLER_URL -e FENNEC_HEARTBEAT_INTERVAL_SECONDS go go run . run-once
 
 test-db: db-up db-wait migrate
 	COMPOSE_PROFILES=db $(DCRUN_PHP85_DB) vendor/bin/phpunit --colors=always --group db

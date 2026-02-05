@@ -19,8 +19,25 @@ services:
       - ./:/app
     working_dir: /app
 
+  controller:
+    build:
+      context: .
+      dockerfile: tools/dev/php/Dockerfile
+      args:
+        PHP_VERSION: "8.5"
+    profiles: ["dev"]
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      FENNEC_DB_DSN: "pgsql:host=db;port=5432;dbname=fennec"
+      FENNEC_DB_USER: "fennec"
+      FENNEC_DB_PASSWORD: "fennec-dev"
+    command: ["php", "-S", "0.0.0.0:8080", "-t", "public", "public/index.php"]
+    volumes:
+      - ./:/app
+    working_dir: /app
+
   go:
-    image: golang:1.25.6-trixie
+    image: golang:1.25.7-trixie
     volumes:
       - ./:/app
     working_dir: /app
