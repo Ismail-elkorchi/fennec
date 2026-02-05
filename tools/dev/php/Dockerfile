@@ -7,8 +7,9 @@ RUN apt-get update \
     unzip \
     zip \
     libzip-dev \
+    libpq-dev \
     curl \
-  && docker-php-ext-install zip \
+  && docker-php-ext-install zip pdo_pgsql \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer

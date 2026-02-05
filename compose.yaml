@@ -24,3 +24,22 @@ services:
     volumes:
       - ./:/app
     working_dir: /app
+
+  db:
+    image: postgres:18.1-trixie
+    profiles: ["db"]
+    environment:
+      POSTGRES_DB: fennec
+      POSTGRES_USER: fennec
+      POSTGRES_PASSWORD: fennec-dev
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - fennec_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fennec -d fennec"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+volumes:
+  fennec_db_data:

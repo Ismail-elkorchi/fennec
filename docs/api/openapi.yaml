@@ -56,6 +56,27 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /readyz:
+    get:
+      summary: Readiness check
+      description: Returns readiness based on database connectivity.
+      operationId: getReadyz
+      tags:
+        - meta
+      security: []
+      responses:
+        '200':
+          description: Service is ready.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyStatus'
+        '503':
+          description: Database is unavailable.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /openapi.yaml:
     get:
       summary: OpenAPI specification in YAML
@@ -99,6 +120,20 @@ components:
         - status
       properties:
         status:
+          type: string
+          enum:
+            - ok
+    ReadyStatus:
+      type: object
+      required:
+        - status
+        - db
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+        db:
           type: string
           enum:
             - ok

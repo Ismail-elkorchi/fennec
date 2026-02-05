@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+$autoload = __DIR__ . '/../vendor/autoload.php';
+if (is_file($autoload)) {
+    require_once $autoload;
+}
+
 function fennec_route(string $method, string $path): array
 {
     $normalizedPath = parse_url($path, PHP_URL_PATH);
@@ -20,6 +25,10 @@ function fennec_route(string $method, string $path): array
             'commit' => getenv('FENNEC_COMMIT') ?: 'unknown',
             'build_time' => getenv('FENNEC_BUILD_TIME') ?: 'unknown',
         ]);
+    }
+
+    if ($method === 'GET' && $normalizedPath === '/readyz') {
+        return fennec_readiness_response();
     }
 
     if ($method === 'GET' && $normalizedPath === '/openapi.yaml') {
@@ -67,10 +76,15 @@ function fennec_json_response(int $status, array $payload): array
     ];
 }
 
-function fennec_problem_response(int $status, string $title, string $detail): array
+function fennec_problem_response(
+    int $status,
+    string $title,
+    string $detail,
+    string $type = 'about:blank'
+): array
 {
     $payload = [
-        'type' => 'about:blank',
+        'type' => $type,
         'title' => $title,
         'status' => $status,
         'detail' => $detail,
@@ -87,6 +101,55 @@ function fennec_problem_response(int $status, string $title, string $detail): ar
         ],
         'body' => $body,
     ];
+}
+
+function fennec_readiness_response(): array
+{
+    $problemType = 'https://fennec.local/problems/db-unavailable';
+
+    if (!class_exists(\Fennec\Config::class)) {
+        return fennec_problem_response(
+            503,
+            'Database unavailable',
+            'Database configuration is not loaded.',
+            $problemType
+        );
+    }
+
+    $config = \Fennec\Config::fromEnv();
+    if (!$config->hasDbConfig()) {
+        return fennec_problem_response(
+            503,
+            'Database unavailable',
+            'Database configuration is missing.',
+            $problemType
+        );
+    }
+
+    try {
+        $db = \Fennec\Database::connect($config);
+    } catch (Throwable $exception) {
+        return fennec_problem_response(
+            503,
+            'Database unavailable',
+            'Database connection failed.',
+            $problemType
+        );
+    }
+
+    if (!$db->ping()) {
+        return fennec_problem_response(
+            503,
+            'Database unavailable',
+            'Database ping failed.',
+            $problemType
+        );
+    }
+
+    return fennec_json_response(200, [
+        'status' => 'ok',
+        'db' => 'ok',
+    ]);
 }
 
 function fennec_openapi_path(): string

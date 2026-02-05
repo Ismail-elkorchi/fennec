@@ -114,8 +114,6 @@ Fennec needs a small, reliable control plane with a privileged agent. The WebUI 
 ### Review-By
 2026-05-05
 
----
-
 ## ADR-0004: Contract-First API + Lint Governance
 Status: Accepted
 Date: 2026-02-05
@@ -159,6 +157,54 @@ Tooling support for the most recent OpenAPI versions is still uneven.
 ### Unknowns
 - Whether agent mutual TLS will require additional OpenAPI tooling accommodations.
 - Future versioning strategy once public clients are onboarded.
+
+### Review-By
+2026-05-05
+
+---
+
+## ADR-0005: Controller Persistence: Postgres 18.1 + PDO + SQL Migrations
+Status: Accepted
+Date: 2026-02-05
+
+### Context
+The controller needs a durable state store and a minimal, testable persistence layer.
+We want predictable local development using Docker, with migration history tracked explicitly.
+Authentication bootstrap requires a safe password hashing baseline.
+
+### Decision
+- Use PostgreSQL 18.1 (Debian trixie) in development via Docker compose profile `db`.
+- Use PDO directly with strict error handling and prepared statements only.
+- Maintain schema changes through ordered SQL migration files.
+- Adopt RFC 9457 Problem Details for readiness errors and use `/readyz` to reflect DB availability.
+- Use Argon2id for password hashing with configurable parameters and safe defaults aligned with OWASP guidance.
+
+### Alternatives Considered
+- SQLite for embedded local development.
+- MySQL/MariaDB for wider hosting panel familiarity.
+- File-based or JSON state for bootstrap simplicity.
+
+### Tradeoffs
+- PostgreSQL adds container overhead but provides the strongest baseline for correctness and concurrency.
+- Raw SQL migrations keep control but require discipline in writing reversible migrations later.
+- PDO avoids framework lock-in but leaves more manual query code to maintain.
+
+### Evidence
+- `compose.yaml` defines a pinned `postgres:18.1-trixie` profile service with health checks.
+- `migrations/001_init.sql` establishes schema_migrations, users, and audit_events.
+- `bin/fennec` provides a migration runner and admin bootstrap command.
+- `/readyz` checks DB connectivity to separate readiness from liveness.
+- OWASP Password Storage guidance recommends Argon2id for password hashing:
+  https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
+
+### Falsifiers
+- PostgreSQL 18.1 becomes incompatible with deployment targets or introduces blocking issues.
+- PDO becomes a bottleneck for safety or maintainability compared to a lightweight DBAL.
+- Operational evidence shows a different engine is required for scaling or compatibility.
+
+### Unknowns
+- Long-term migration strategy for multi-node environments.
+- Whether additional schema tooling is needed for safe rollbacks.
 
 ### Review-By
 2026-05-05

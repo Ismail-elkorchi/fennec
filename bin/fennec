@@ -1,0 +1,75 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Fennec\AdminCreator;
+use Fennec\Config;
+use Fennec\Database;
+use Fennec\MigrationRunner;
+
+$autoload = __DIR__ . '/../vendor/autoload.php';
+if (is_file($autoload)) {
+    require_once $autoload;
+}
+
+function usage(): void
+{
+    $message = <<<TEXT
+Fennec CLI
+
+Usage:
+  bin/fennec migrate
+  bin/fennec create-admin --email=you@example.com --password=secret
+TEXT;
+    fwrite(STDERR, $message . PHP_EOL);
+}
+
+$command = $argv[1] ?? null;
+if ($command === null) {
+    usage();
+    exit(1);
+}
+
+$config = Config::fromEnv();
+if (!$config->hasDbConfig()) {
+    fwrite(STDERR, "Database configuration is missing.\n");
+    exit(1);
+}
+
+try {
+    $db = Database::connect($config);
+} catch (Throwable $exception) {
+    fwrite(STDERR, "Database connection failed: {$exception->getMessage()}\n");
+    exit(1);
+}
+
+switch ($command) {
+    case 'migrate':
+        $runner = new MigrationRunner($db, __DIR__ . '/../migrations');
+        $applied = $runner->migrate();
+        if ($applied === []) {
+            fwrite(STDOUT, "No migrations to apply.\n");
+        } else {
+            fwrite(STDOUT, "Applied migrations:\n");
+            foreach ($applied as $version) {
+                fwrite(STDOUT, "- {$version}\n");
+            }
+        }
+        exit(0);
+    case 'create-admin':
+        $options = getopt('', ['email:', 'password:']);
+        $email = $options['email'] ?? '';
+        $password = $options['password'] ?? '';
+        if ($email === '' || $password === '') {
+            usage();
+            exit(1);
+        }
+        $creator = new AdminCreator($db, $config);
+        $userId = $creator->createAdmin($email, $password);
+        fwrite(STDOUT, "Admin created with id {$userId}.\n");
+        exit(0);
+    default:
+        usage();
+        exit(1);
+}

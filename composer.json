@@ -17,7 +17,7 @@
   },
   "autoload": {
     "psr-4": {
-      "Fennec\\": "controller/src/"
+      "Fennec\\": "src/"
     }
   },
   "autoload-dev": {
