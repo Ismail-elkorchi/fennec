@@ -4,7 +4,7 @@ Fennec uses containerized toolchains for reliable local testing. You do not need
 If Docker is already installed and you can run `docker` without sudo, skip the install step below.
 
 ## Install Docker Engine
-Run the setup script using sudo (only for fresh setups):
+Run the setup script using sudo only for fresh setups (development commands should not use sudo):
 
 ```bash
 sudo ./tools/dev/setup-ubuntu-25.10-docker.sh
@@ -61,6 +61,9 @@ Run the agent once against the controller (replace the token from above):
 ```bash
 FENNEC_CONTROLLER_URL="http://controller:8080" FENNEC_AGENT_TOKEN="1.<secret>" make agent-run-once
 ```
+
+Heartbeat guidance: keep `FENNEC_HEARTBEAT_INTERVAL_SECONDS` at or below half of the lease time (default lease is 60s; heartbeat default is 20s).
+CLI flags accept both `--flag value` and `--flag=value`.
 
 When finished:
 

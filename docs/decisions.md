@@ -13,7 +13,7 @@ Date: 2026-02-04
 A license must be selected before meaningful implementation begins. The current `LICENSE` file is a placeholder using GPL-3 text.
 
 ### Decision
-TBD.
+NEXT: choose the final license and update `LICENSE` by 2026-03-06.
 
 ### Alternatives Considered
 - MIT
@@ -44,9 +44,9 @@ Local tests must be reproducible on Ubuntu 25.10 without relying on host PHP/Go 
 ### Decision
 - Use Docker Engine from the official Docker apt repository for local dev/testing on Ubuntu 25.10.
 - Run PHP tests in a container built from `php:${PHP_VERSION}-cli-trixie`.
-- Run Go tests in `golang:1.25.6-trixie`.
+- Run Go tests in `golang:1.25.7-trixie`.
 - Use `compose.yaml` and Makefile targets to run tests via `docker compose run --rm`.
-- If Docker requires sudo, use `sudo docker` and `sudo make test` until group membership is configured.
+- If Docker requires sudo, fix group membership before running development commands.
 
 ### Alternatives Considered
 - Host toolchains for PHP and Go (rejected due to OS package availability and reproducibility concerns).
