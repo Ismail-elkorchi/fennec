@@ -112,8 +112,13 @@ switch ($command) {
         exit(0);
     case 'requeue-expired':
         $jobs = new JobRepository($db);
-        $count = $jobs->requeueExpired();
-        fwrite(STDOUT, json_encode(['requeued' => $count], JSON_UNESCAPED_SLASHES) . PHP_EOL);
+        $jobIds = $jobs->requeueExpired();
+        sort($jobIds, SORT_NUMERIC);
+        $output = [
+            'requeued' => count($jobIds),
+            'job_ids' => $jobIds,
+        ];
+        fwrite(STDOUT, json_encode($output, JSON_UNESCAPED_SLASHES) . PHP_EOL);
         exit(0);
     default:
         usage();

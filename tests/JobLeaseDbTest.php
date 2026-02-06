@@ -39,8 +39,8 @@ final class JobLeaseDbTest extends TestCase
             [':id' => $job['id']]
         );
 
-        $requeued = $jobs->requeueExpired();
-        $this->assertSame(1, $requeued);
+        $requeuedIds = $jobs->requeueExpired();
+        $this->assertSame([$job['id']], $requeuedIds);
 
         $row = $db->fetchOne('SELECT status FROM jobs WHERE id = :id', [':id' => $job['id']]);
         $this->assertNotNull($row);

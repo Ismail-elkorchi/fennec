@@ -31,6 +31,7 @@ services:
       FENNEC_DB_DSN: "pgsql:host=db;port=5432;dbname=fennec"
       FENNEC_DB_USER: "fennec"
       FENNEC_DB_PASSWORD: "fennec-dev"
+      FENNEC_JOB_LEASE_SECONDS: "${FENNEC_JOB_LEASE_SECONDS:-60}"
     command: ["php", "-S", "0.0.0.0:8080", "-t", "public", "public/index.php"]
     volumes:
       - ./:/app

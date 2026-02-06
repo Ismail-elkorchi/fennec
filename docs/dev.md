@@ -40,6 +40,12 @@ make db-wait
 make migrate
 ```
 
+For faster lease-expiry proofs:
+
+```bash
+FENNEC_JOB_LEASE_SECONDS=10 make dev-up
+```
+
 Create an agent token and enqueue a noop job:
 
 ```bash

@@ -162,7 +162,10 @@ final class JobRepository
         return $this->normalizeJob($row);
     }
 
-    public function requeueExpired(): int
+    /**
+     * @return array<int>
+     */
+    public function requeueExpired(): array
     {
         $rows = $this->db->fetchAll(
             "SELECT id, attempt, max_attempts, last_error\n" .
@@ -171,10 +174,10 @@ final class JobRepository
         );
 
         if ($rows === []) {
-            return 0;
+            return [];
         }
 
-        $updated = 0;
+        $requeuedIds = [];
         $this->db->begin();
         try {
             foreach ($rows as $row) {
@@ -217,9 +220,9 @@ final class JobRepository
                             ':id' => $jobId,
                         ]
                     );
-                }
 
-                $updated++;
+                    $requeuedIds[] = $jobId;
+                }
             }
 
             $this->db->commit();
@@ -228,7 +231,9 @@ final class JobRepository
             throw $exception;
         }
 
-        return $updated;
+        sort($requeuedIds, SORT_NUMERIC);
+
+        return $requeuedIds;
     }
 
     /**
