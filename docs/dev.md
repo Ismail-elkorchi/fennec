@@ -1,9 +1,10 @@
 # Local Development (Ubuntu 25.10)
 
 Fennec uses containerized toolchains for reliable local testing. You do not need host PHP or Go installed.
+If Docker is already installed and you can run `docker` without sudo, skip the install step below.
 
 ## Install Docker Engine
-Run the setup script using sudo:
+Run the setup script using sudo (only for fresh setups):
 
 ```bash
 sudo ./tools/dev/setup-ubuntu-25.10-docker.sh
@@ -28,7 +29,8 @@ Optional minimum-version check:
 make test-php84
 ```
 
-## Agent MVP quick run
+## Quickstart (Agent MVP)
+This is the canonical end-to-end loop for controller + DB + agent.
 
 Start the dev controller and database:
 
@@ -72,5 +74,5 @@ make dev-down
 - Composer install fails inside container: rerun `make test` (the container installs dependencies into `vendor/`).
 
 ## Notes
-- If Docker requires sudo, use `sudo docker ...` (and `sudo make test`) until group membership is configured.
+- If Docker requires sudo, fix group membership instead of running development commands with sudo.
 - Rootless Docker is an alternative for development: https://docs.docker.com/engine/security/rootless/

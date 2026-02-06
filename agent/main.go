@@ -33,9 +33,9 @@ type Client struct {
 type Job struct {
 	ID      int               `json:"id"`
 	Type    string            `json:"type"`
-	Payload map[string]any    `json:"payload"`
+	Payload json.RawMessage   `json:"payload"`
 	Status  string            `json:"status"`
-	Result  map[string]any    `json:"result"`
+	Result  json.RawMessage   `json:"result"`
 	Error   *string           `json:"last_error"`
 	Meta    map[string]string `json:"-"`
 }
