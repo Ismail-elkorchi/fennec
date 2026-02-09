@@ -110,10 +110,11 @@ function fennec_problem_response(
         'title' => $title,
         'status' => $status,
         'detail' => $detail,
+        'instance' => 'urn:fennec:problem',
     ];
     $body = json_encode($payload, JSON_UNESCAPED_SLASHES);
     if ($body === false) {
-        $body = '{"type":"about:blank","title":"Serialization error","status":500}';
+        $body = '{"type":"about:blank","title":"Serialization error","status":500,"instance":"urn:fennec:problem"}';
     }
 
     return [
