@@ -14,6 +14,91 @@ require_once __DIR__ . '/../public/index.php';
 #[Group('db')]
 final class JobAgentFlowDbTest extends TestCase
 {
+    public function testOwnerHeartbeatExtendsLeaseExpiry(): void
+    {
+        [$config, $db] = $this->db();
+        $this->resetDb($db);
+
+        $agent = $this->createAgent($db, $config, 'heartbeat-owner');
+        $jobs = new JobRepository($db);
+        $job = $jobs->enqueue('noop', ['ping' => 'pong']);
+        $this->claimJob($job['id'], $agent['token']);
+
+        $before = $jobs->findById($job['id']);
+        $this->assertNotNull($before);
+        $beforeLease = strtotime((string) $before['lease_expires_at']);
+        $this->assertNotFalse($beforeLease);
+
+        usleep(200000);
+
+        $heartbeat = fennec_route(
+            'POST',
+            '/agent/v1/jobs/' . $job['id'] . '/heartbeat',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $agent['token'],
+                ],
+            ]
+        );
+        $this->assertSame(200, $heartbeat['status']);
+        $this->assertSame('application/json; charset=utf-8', $heartbeat['headers']['Content-Type']);
+
+        $payload = json_decode($heartbeat['body'], true);
+        $this->assertIsArray($payload);
+        $afterLease = strtotime((string) $payload['job']['lease_expires_at']);
+        $this->assertNotFalse($afterLease);
+        $this->assertGreaterThan($beforeLease, $afterLease);
+
+        $stored = $jobs->findById($job['id']);
+        $this->assertNotNull($stored);
+        $storedLease = strtotime((string) $stored['lease_expires_at']);
+        $this->assertNotFalse($storedLease);
+        $this->assertGreaterThan($beforeLease, $storedLease);
+        $this->assertSame('running', $stored['status']);
+        $this->assertSame($agent['agent_id'], $stored['locked_by_agent_id']);
+    }
+
+    public function testNonOwnerHeartbeatReturnsConflictWithoutMutation(): void
+    {
+        [$config, $db] = $this->db();
+        $this->resetDb($db);
+
+        $owner = $this->createAgent($db, $config, 'heartbeat-owner');
+        $other = $this->createAgent($db, $config, 'heartbeat-other');
+        $jobs = new JobRepository($db);
+        $job = $jobs->enqueue('noop', ['ping' => 'pong']);
+        $this->claimJob($job['id'], $owner['token']);
+
+        $before = $jobs->findById($job['id']);
+        $this->assertNotNull($before);
+
+        $heartbeat = fennec_route(
+            'POST',
+            '/agent/v1/jobs/' . $job['id'] . '/heartbeat',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $other['token'],
+                ],
+            ]
+        );
+        $this->assertSame(409, $heartbeat['status']);
+        $this->assertSame('application/problem+json; charset=utf-8', $heartbeat['headers']['Content-Type']);
+
+        $problem = json_decode($heartbeat['body'], true);
+        $this->assertIsArray($problem);
+        $this->assertSame(409, $problem['status']);
+        $this->assertSame(FENNEC_PROBLEM_JOB_CONFLICT, $problem['type']);
+        $this->assertArrayHasKey('instance', $problem);
+
+        $after = $jobs->findById($job['id']);
+        $this->assertNotNull($after);
+        $this->assertSame($before['lease_expires_at'], $after['lease_expires_at']);
+        $this->assertSame($before['heartbeat_at'], $after['heartbeat_at']);
+        $this->assertSame($before['status'], $after['status']);
+        $this->assertSame($before['attempt'], $after['attempt']);
+        $this->assertSame($before['locked_by_agent_id'], $after['locked_by_agent_id']);
+    }
+
     public function testCompleteIsIdempotentForSameTerminalPayload(): void
     {
         [$config, $db] = $this->db();
@@ -231,6 +316,12 @@ final class JobAgentFlowDbTest extends TestCase
         $this->assertIsArray($problem);
         $this->assertSame(409, $problem['status']);
         $this->assertSame(FENNEC_PROBLEM_JOB_CONFLICT, $problem['type']);
+
+        $stored = (new JobRepository($db))->findById($job['id']);
+        $this->assertNotNull($stored);
+        $this->assertSame('succeeded', $stored['status']);
+        $this->assertNull($stored['heartbeat_at']);
+        $this->assertNull($stored['lease_expires_at']);
     }
 
     /**
