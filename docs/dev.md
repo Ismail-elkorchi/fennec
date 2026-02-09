@@ -4,7 +4,7 @@ Fennec uses containerized toolchains for reliable local testing. You do not need
 If Docker is already installed and you can run `docker` without sudo, skip the install step below.
 
 ## Install Docker Engine
-Run the setup script using sudo only for fresh setups (development commands should not use sudo):
+Run the setup script using sudo only for fresh setups (development commands must not use sudo):
 
 ```bash
 sudo ./tools/dev/setup-ubuntu-25.10-docker.sh
@@ -49,17 +49,8 @@ FENNEC_JOB_LEASE_SECONDS=10 make dev-up
 Create an agent token and enqueue a noop job:
 
 ```bash
-COMPOSE_PROFILES=db docker compose run --rm --user $(id -u):$(id -g) \
-  -e HOME=/tmp -e COMPOSER_CACHE_DIR=/tmp/composer-cache \
-  -e FENNEC_DB_DSN="pgsql:host=db;port=5432;dbname=fennec" \
-  -e FENNEC_DB_USER=fennec -e FENNEC_DB_PASSWORD=fennec-dev \
-  php85 php bin/fennec create-agent --name=local-agent
-
-COMPOSE_PROFILES=db docker compose run --rm --user $(id -u):$(id -g) \
-  -e HOME=/tmp -e COMPOSER_CACHE_DIR=/tmp/composer-cache \
-  -e FENNEC_DB_DSN="pgsql:host=db;port=5432;dbname=fennec" \
-  -e FENNEC_DB_USER=fennec -e FENNEC_DB_PASSWORD=fennec-dev \
-  php85 php bin/fennec enqueue-noop
+AGENT_NAME=local-agent make create-agent
+make enqueue-noop
 ```
 
 Run the agent once against the controller (replace the token from above):

@@ -163,6 +163,23 @@ final class JobRepository
     }
 
     /**
+     * @return array<string, mixed>|null
+     */
+    public function findById(int $jobId): ?array
+    {
+        $row = $this->db->fetchOne(
+            'SELECT * FROM jobs WHERE id = :id',
+            [':id' => $jobId]
+        );
+
+        if ($row === null) {
+            return null;
+        }
+
+        return $this->normalizeJob($row);
+    }
+
+    /**
      * @return array<int>
      */
     public function requeueExpired(): array

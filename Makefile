@@ -12,7 +12,7 @@ DCRUN_PHP84 := $(COMPOSE) run --rm --user $(UID):$(GID) -e HOME=/tmp -e COMPOSER
 DCRUN_GO := $(COMPOSE) run --rm --user $(UID):$(GID) -e HOME=/tmp
 DCRUN_PHP85_DB := $(COMPOSE) run --rm --user $(UID):$(GID) -e HOME=/tmp -e COMPOSER_CACHE_DIR=/tmp/composer-cache $(DB_ENV) php85
 
-.PHONY: lint lint-md lint-openapi lint-php test stan test-php84 db-up db-wait db-down db-reset migrate test-db requeue-expired dev-up dev-down agent-run-once
+.PHONY: lint lint-md lint-openapi lint-php test stan test-php84 db-up db-wait db-down db-reset migrate test-db create-agent enqueue-noop requeue-expired dev-up dev-down agent-run-once
 
 lint: lint-md lint-openapi lint-php
 
@@ -69,6 +69,13 @@ dev-down:
 
 migrate:
 	COMPOSE_PROFILES=db $(DCRUN_PHP85_DB) php bin/fennec migrate
+
+create-agent:
+	@if [ -z "$$AGENT_NAME" ]; then echo "AGENT_NAME is required"; exit 1; fi
+	COMPOSE_PROFILES=db $(DCRUN_PHP85_DB) php bin/fennec create-agent --name="$$AGENT_NAME"
+
+enqueue-noop:
+	COMPOSE_PROFILES=db $(DCRUN_PHP85_DB) php bin/fennec enqueue-noop
 
 requeue-expired:
 	COMPOSE_PROFILES=db $(DCRUN_PHP85_DB) php bin/fennec requeue-expired

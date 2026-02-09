@@ -289,10 +289,32 @@ function fennec_agent_complete(int $jobId, array $headers, ?string $body): array
     }
 
     if ($job === null) {
+        try {
+            $existing = $jobs->findById($jobId);
+        } catch (Throwable $exception) {
+            return fennec_problem_response(
+                503,
+                'Database unavailable',
+                'Job completion failed.',
+                FENNEC_PROBLEM_DB_UNAVAILABLE
+            );
+        }
+
+        if (
+            $existing !== null
+            && $existing['locked_by_agent_id'] === $auth['agent']['id']
+            && fennec_is_terminal_job_status($existing['status'])
+            && fennec_json_values_equal($existing['result'], $result)
+            && $existing['last_error'] === $error
+            && $existing['status'] === $status
+        ) {
+            return fennec_json_response(200, ['job' => $existing]);
+        }
+
         return fennec_problem_response(
             409,
             'Job conflict',
-            'Job is not owned by this agent or is not running.',
+            'Job is not owned by this agent, is not running, or has a conflicting terminal state.',
             FENNEC_PROBLEM_JOB_CONFLICT
         );
     }
@@ -418,6 +440,41 @@ function fennec_parse_json(?string $body): ?array
     }
 
     return $decoded;
+}
+
+function fennec_is_terminal_job_status(mixed $status): bool
+{
+    return is_string($status) && in_array($status, ['succeeded', 'failed'], true);
+}
+
+function fennec_json_values_equal(mixed $left, mixed $right): bool
+{
+    if (!is_array($left) || !is_array($right)) {
+        return false;
+    }
+
+    return fennec_normalize_json_value($left) === fennec_normalize_json_value($right);
+}
+
+function fennec_normalize_json_value(mixed $value): mixed
+{
+    if (!is_array($value)) {
+        return $value;
+    }
+
+    if (array_is_list($value)) {
+        foreach ($value as $index => $item) {
+            $value[$index] = fennec_normalize_json_value($item);
+        }
+        return $value;
+    }
+
+    ksort($value);
+    foreach ($value as $key => $item) {
+        $value[$key] = fennec_normalize_json_value($item);
+    }
+
+    return $value;
 }
 
 function fennec_openapi_path(): string
