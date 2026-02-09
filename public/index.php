@@ -116,24 +116,47 @@ function fennec_json_response(int $status, array $payload): array
 
 function fennec_html_response(int $status, string $body): array
 {
-    return [
-        'status' => $status,
-        'headers' => [
+    $headers = array_merge(
+        [
             'Content-Type' => 'text/html; charset=utf-8',
         ],
+        fennec_html_security_headers()
+    );
+
+    return [
+        'status' => $status,
+        'headers' => $headers,
         'body' => $body,
     ];
 }
 
 function fennec_redirect_response(string $location, int $status = 302): array
 {
-    return [
-        'status' => $status,
-        'headers' => [
+    $headers = array_merge(
+        [
             'Content-Type' => 'text/html; charset=utf-8',
             'Location' => $location,
         ],
+        fennec_html_security_headers()
+    );
+
+    return [
+        'status' => $status,
+        'headers' => $headers,
         'body' => '',
+    ];
+}
+
+/**
+ * @return array<string, string>
+ */
+function fennec_html_security_headers(): array
+{
+    return [
+        'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+        'X-Content-Type-Options' => 'nosniff',
+        'Referrer-Policy' => 'no-referrer',
+        'X-Frame-Options' => 'DENY',
     ];
 }
 
@@ -244,9 +267,7 @@ function fennec_login_submit(?string $body): array
         return fennec_login_page('Invalid credentials.', 401);
     }
 
-    if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_ACTIVE) {
-        session_regenerate_id(true);
-    }
+    fennec_session_regenerate();
 
     fennec_session_set('admin_id', (int) $admin['id']);
     fennec_session_set('csrf_token', fennec_generate_csrf_token());
@@ -263,9 +284,7 @@ function fennec_logout_submit(?string $body): array
 
     fennec_session_clear();
 
-    if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_ACTIVE) {
-        session_regenerate_id(true);
-    }
+    fennec_session_regenerate();
 
     return fennec_redirect_response('/login');
 }
@@ -763,26 +782,50 @@ function fennec_session_bootstrap(): void
     }
 
     session_name('fennec_session');
+    session_set_cookie_params(fennec_session_cookie_options($_SERVER));
+    session_start();
+}
 
-    $isSecure = false;
-    $https = $_SERVER['HTTPS'] ?? '';
-    if (is_string($https) && $https !== '' && strtolower($https) !== 'off') {
-        $isSecure = true;
-    }
-
-    $forwarded = $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '';
-    if (!$isSecure && is_string($forwarded) && strtolower($forwarded) === 'https') {
-        $isSecure = true;
-    }
-
-    session_set_cookie_params([
+/**
+ * @param array<string, mixed> $server
+ * @return array{lifetime:int,path:string,secure:bool,httponly:bool,samesite:string}
+ */
+function fennec_session_cookie_options(array $server): array
+{
+    return [
         'lifetime' => 0,
         'path' => '/',
-        'secure' => $isSecure,
+        'secure' => fennec_request_is_https($server),
         'httponly' => true,
         'samesite' => 'Lax',
-    ]);
-    session_start();
+    ];
+}
+
+/**
+ * @param array<string, mixed> $server
+ */
+function fennec_request_is_https(array $server): bool
+{
+    $https = $server['HTTPS'] ?? '';
+    if (is_string($https) && $https !== '' && strtolower($https) !== 'off') {
+        return true;
+    }
+
+    $forwarded = $server['HTTP_X_FORWARDED_PROTO'] ?? '';
+    if (is_string($forwarded) && strtolower($forwarded) === 'https') {
+        return true;
+    }
+
+    return false;
+}
+
+function fennec_session_regenerate(): bool
+{
+    if (session_status() !== PHP_SESSION_ACTIVE || headers_sent()) {
+        return false;
+    }
+
+    return session_regenerate_id(true);
 }
 
 function fennec_session_set(string $key, mixed $value): void
