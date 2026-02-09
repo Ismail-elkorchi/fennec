@@ -1,7 +1,7 @@
 # North-Star Metrics (2026+)
 
 These metrics define measurable outcomes for the "best control panel in the world" goal.
-Targets are intentionally ambitious but should be testable and repeatable.
+Targets are intentionally ambitious but must be testable and repeatable.
 
 ## Delivery metrics
 
@@ -26,7 +26,7 @@ Targets are intentionally ambitious but should be testable and repeatable.
 ## Measurement notes
 
 - Benchmarks must be runnable from CI and a local dev machine.
-- Metrics should be tracked per release and compared over time.
+- Metrics must be tracked per release and compared over time.
 - A failed metric is a release blocker for the next major version.
 
 ## Anti-goals

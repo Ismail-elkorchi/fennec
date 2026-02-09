@@ -17,7 +17,7 @@ Use `docs/decision-template.md` as the starting point.
 ## Evidence standards
 - Prefer replayable steps (commands, scripts, or CI logs).
 - Cite concrete repo paths (for example `composer.json`, `.github/workflows/ci.yml`).
-- Avoid vague statements like "it should work" without a test or source.
+- Avoid vague statements like "it works" without a test or source.
 
 ## Reassessment rules
 - Every decision must include a `Review-By` date in `YYYY-MM-DD` format.

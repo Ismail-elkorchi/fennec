@@ -69,7 +69,7 @@ Local tests must be reproducible on Ubuntu 25.10 without relying on host PHP/Go 
 
 ### Unknowns
 - Confirm `php:${PHP_VERSION}-cli-trixie` availability for both 8.4 and 8.5 in the official image list.
-- Whether rootless Docker should be required for developers (pending a separate review).
+- Whether rootless Docker is required for developers (NEXT: decide by 2026-03-15 in ADR-0003 follow-up).
 
 ### Review-By
 2026-05-05
@@ -186,7 +186,7 @@ Authentication bootstrap requires a safe password hashing baseline.
 
 ### Tradeoffs
 - PostgreSQL adds container overhead but provides the strongest baseline for correctness and concurrency.
-- Raw SQL migrations keep control but require discipline in writing reversible migrations later.
+- Raw SQL migrations keep control but require discipline in writing reversible migrations in follow-up ADR work by 2026-03-31.
 - PDO avoids framework lock-in but leaves more manual query code to maintain.
 
 ### Evidence

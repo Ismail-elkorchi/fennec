@@ -2,7 +2,7 @@
 
 This directory is contract-first by default.
 The OpenAPI file is the source of truth for UI, CLI, agent, and integrations.
-Implementation should follow the contract, not the other way around.
+Implementation must follow the contract, not the other way around.
 
 ## Versioning policy
 

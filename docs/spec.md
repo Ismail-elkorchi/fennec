@@ -40,7 +40,7 @@ Fennec will use two repositories:
 - Migration toolkit repository (HestiaCP -> Fennec).
 - Must remain separate so migration constraints do not leak into the core design.
 
-Optional later repos (not part of bootstrap):
+Optional follow-up repos (not part of bootstrap, decision by 2026-03-15):
 - fennec-sdk (client libraries)
 - fennec-docs (public site)
 
@@ -93,11 +93,11 @@ Fennec will have an explicit canonical state store (not scattered filesystem sta
 ---
 
 ## 4) Platform support (bootstrap statement)
-Bootstrap work should assume:
+Bootstrap work must assume:
 - Linux servers
 - systemd-based distros
 
-Exact support matrix will be finalized later.
+Exact support matrix will be finalized by 2026-03-15.
 Avoid tying early code to distro-specific paths unless behind an abstraction layer.
 
 ---

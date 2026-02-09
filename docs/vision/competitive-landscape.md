@@ -26,4 +26,5 @@ It is meant to keep our strategy grounded and measurable.
 ## Notes
 
 - This is not an endorsement list; it is a baseline for differentiation.
-- We should refresh this snapshot quarterly as upstream docs and feature sets change.
+- Refresh this snapshot quarterly as upstream docs and feature sets change.
+- NEXT: complete the next refresh by 2026-04-30 and update source links in this file.

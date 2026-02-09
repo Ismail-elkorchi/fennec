@@ -8,4 +8,4 @@
 | CR-0004 | Support many stacks and services. | Keep the core small, deterministic, and supportable. | Boundary | Scope matrix + maintenance cost estimates. | NEXT: assign owner by 2026-02-20 | 2026-02-05 |
 | CR-0005 | Container-aware workflows for modern stacks. | Avoid turning into a PaaS with blurred responsibilities. | Boundary | Product boundaries doc + operator feedback. | NEXT: assign owner by 2026-02-20 | 2026-02-05 |
 | CR-0006 | Embedded DB simplicity for local dev. | Multi-node reliability with a dedicated database. | Boundary | Ops requirements + scaling tests. | NEXT: assign owner by 2026-02-20 | 2026-02-05 |
-| CR-0007 | Simple bearer tokens now. | mTLS hardening later. | Boundary | Agent auth design review. | NEXT: assign owner by 2026-02-20 | 2026-02-05 |
+| CR-0007 | Simple bearer tokens now. | mTLS hardening targeted by 2026-03-31. | Boundary | Agent auth design review. | NEXT: assign owner by 2026-02-20 | 2026-02-05 |
