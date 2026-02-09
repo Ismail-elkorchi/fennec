@@ -39,6 +39,22 @@ function fennec_route(string $method, string $path, array $options = []): array
         return fennec_readiness_response();
     }
 
+    if ($method === 'GET' && $normalizedPath === '/login') {
+        return fennec_login_page();
+    }
+
+    if ($method === 'POST' && $normalizedPath === '/login') {
+        return fennec_login_submit($body);
+    }
+
+    if ($method === 'POST' && $normalizedPath === '/logout') {
+        return fennec_logout_submit($body);
+    }
+
+    if ($method === 'GET' && $normalizedPath === '/admin') {
+        return fennec_admin_dashboard();
+    }
+
     if ($method === 'POST' && $normalizedPath === '/agent/v1/jobs/claim') {
         return fennec_agent_claim($headers);
     }
@@ -98,6 +114,29 @@ function fennec_json_response(int $status, array $payload): array
     ];
 }
 
+function fennec_html_response(int $status, string $body): array
+{
+    return [
+        'status' => $status,
+        'headers' => [
+            'Content-Type' => 'text/html; charset=utf-8',
+        ],
+        'body' => $body,
+    ];
+}
+
+function fennec_redirect_response(string $location, int $status = 302): array
+{
+    return [
+        'status' => $status,
+        'headers' => [
+            'Content-Type' => 'text/html; charset=utf-8',
+            'Location' => $location,
+        ],
+        'body' => '',
+    ];
+}
+
 function fennec_problem_response(
     int $status,
     string $title,
@@ -124,6 +163,251 @@ function fennec_problem_response(
         ],
         'body' => $body,
     ];
+}
+
+function fennec_login_page(?string $error = null, int $status = 200): array
+{
+    $csrfToken = fennec_ensure_csrf_token();
+    $errorHtml = '';
+    if ($error !== null && trim($error) !== '') {
+        $errorHtml = '<p style="color:#b00020;">' . fennec_escape_html($error) . '</p>';
+    }
+
+    $body = <<<HTML
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fennec Login</title>
+</head>
+<body>
+  <main style="max-width: 420px; margin: 4rem auto; font-family: sans-serif;">
+    <h1>Fennec Login</h1>
+    {$errorHtml}
+    <form method="post" action="/login">
+      <input type="hidden" name="csrf_token" value="{$csrfToken}">
+      <div style="margin-bottom: 0.8rem;">
+        <label for="email">Email</label><br>
+        <input id="email" name="email" type="email" required autocomplete="username" style="width: 100%;">
+      </div>
+      <div style="margin-bottom: 0.8rem;">
+        <label for="password">Password</label><br>
+        <input id="password" name="password" type="password" required autocomplete="current-password" style="width: 100%;">
+      </div>
+      <button type="submit">Sign in</button>
+    </form>
+  </main>
+</body>
+</html>
+HTML;
+
+    return fennec_html_response($status, $body);
+}
+
+function fennec_login_submit(?string $body): array
+{
+    $form = fennec_parse_form($body);
+    if (!fennec_csrf_valid($form['csrf_token'] ?? null)) {
+        return fennec_login_page('Invalid CSRF token.', 400);
+    }
+
+    $email = trim((string) ($form['email'] ?? ''));
+    $password = (string) ($form['password'] ?? '');
+    if ($email === '' || $password === '') {
+        return fennec_login_page('Email and password are required.', 400);
+    }
+
+    $guard = fennec_db_guard();
+    if (isset($guard['error'])) {
+        return $guard['error'];
+    }
+
+    try {
+        $admin = $guard['db']->fetchOne(
+            "SELECT id, password_hash\n" .
+            "FROM users\n" .
+            "WHERE email = :email AND role = 'admin' AND disabled = false\n" .
+            "LIMIT 1",
+            [':email' => $email]
+        );
+    } catch (Throwable $exception) {
+        return fennec_problem_response(
+            503,
+            'Database unavailable',
+            'Admin login failed.',
+            FENNEC_PROBLEM_DB_UNAVAILABLE
+        );
+    }
+
+    if ($admin === null || !password_verify($password, (string) $admin['password_hash'])) {
+        return fennec_login_page('Invalid credentials.', 401);
+    }
+
+    if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_ACTIVE) {
+        session_regenerate_id(true);
+    }
+
+    fennec_session_set('admin_id', (int) $admin['id']);
+    fennec_session_set('csrf_token', fennec_generate_csrf_token());
+
+    return fennec_redirect_response('/admin');
+}
+
+function fennec_logout_submit(?string $body): array
+{
+    $form = fennec_parse_form($body);
+    if (!fennec_csrf_valid($form['csrf_token'] ?? null)) {
+        return fennec_login_page('Invalid CSRF token.', 400);
+    }
+
+    fennec_session_clear();
+
+    if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_ACTIVE) {
+        session_regenerate_id(true);
+    }
+
+    return fennec_redirect_response('/login');
+}
+
+function fennec_admin_dashboard(): array
+{
+    $adminId = fennec_session_admin_id();
+    if ($adminId === null) {
+        return fennec_redirect_response('/login');
+    }
+
+    $guard = fennec_db_guard();
+    if (isset($guard['error'])) {
+        return $guard['error'];
+    }
+
+    try {
+        $admin = $guard['db']->fetchOne(
+            "SELECT id, email\n" .
+            "FROM users\n" .
+            "WHERE id = :id AND role = 'admin' AND disabled = false\n" .
+            "LIMIT 1",
+            [':id' => $adminId]
+        );
+
+        if ($admin === null) {
+            fennec_session_clear();
+            return fennec_redirect_response('/login');
+        }
+
+        $jobs = $guard['db']->fetchAll(
+            "SELECT id, type, status, attempt, created_at, started_at, finished_at, heartbeat_at, lease_expires_at\n" .
+            "FROM jobs\n" .
+            "ORDER BY id DESC\n" .
+            "LIMIT 10"
+        );
+
+        $agents = $guard['db']->fetchAll(
+            "SELECT id, name, created_at, last_seen_at\n" .
+            "FROM agents\n" .
+            "ORDER BY id DESC"
+        );
+    } catch (Throwable $exception) {
+        return fennec_problem_response(
+            503,
+            'Database unavailable',
+            'Admin dashboard failed.',
+            FENNEC_PROBLEM_DB_UNAVAILABLE
+        );
+    }
+
+    $csrfToken = fennec_ensure_csrf_token();
+    $jobsRows = '';
+    foreach ($jobs as $job) {
+        $jobsRows .= '<tr>';
+        $jobsRows .= '<td>' . fennec_escape_html((string) $job['id']) . '</td>';
+        $jobsRows .= '<td>' . fennec_escape_html((string) $job['type']) . '</td>';
+        $jobsRows .= '<td>' . fennec_escape_html((string) $job['status']) . '</td>';
+        $jobsRows .= '<td>' . fennec_escape_html((string) $job['attempt']) . '</td>';
+        $jobsRows .= '<td>' . fennec_escape_html(fennec_nullable_string($job['created_at'])) . '</td>';
+        $jobsRows .= '<td>' . fennec_escape_html(fennec_nullable_string($job['started_at'])) . '</td>';
+        $jobsRows .= '<td>' . fennec_escape_html(fennec_nullable_string($job['finished_at'])) . '</td>';
+        $jobsRows .= '</tr>';
+    }
+    if ($jobsRows === '') {
+        $jobsRows = '<tr><td colspan="7">No jobs yet.</td></tr>';
+    }
+
+    $agentRows = '';
+    foreach ($agents as $agent) {
+        $agentRows .= '<tr>';
+        $agentRows .= '<td>' . fennec_escape_html((string) $agent['id']) . '</td>';
+        $agentRows .= '<td>' . fennec_escape_html((string) $agent['name']) . '</td>';
+        $agentRows .= '<td>' . fennec_escape_html(fennec_nullable_string($agent['created_at'])) . '</td>';
+        $agentRows .= '<td>' . fennec_escape_html(fennec_nullable_string($agent['last_seen_at'] ?? null)) . '</td>';
+        $agentRows .= '</tr>';
+    }
+    if ($agentRows === '') {
+        $agentRows = '<tr><td colspan="4">No agents yet.</td></tr>';
+    }
+
+    $adminEmail = fennec_escape_html((string) $admin['email']);
+    $body = <<<HTML
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fennec Admin</title>
+</head>
+<body>
+  <main style="max-width: 980px; margin: 2rem auto; font-family: sans-serif;">
+    <h1>Fennec Admin</h1>
+    <p>Signed in as {$adminEmail}</p>
+    <form method="post" action="/logout" style="margin-bottom: 1rem;">
+      <input type="hidden" name="csrf_token" value="{$csrfToken}">
+      <button type="submit">Sign out</button>
+    </form>
+    <p>
+      <a href="/openapi.yaml">OpenAPI</a> |
+      <a href="/healthz">Healthz</a> |
+      <a href="/readyz">Readyz</a>
+    </p>
+
+    <h2>Recent Jobs</h2>
+    <table border="1" cellpadding="6" cellspacing="0">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Attempt</th>
+          <th>Created</th>
+          <th>Started</th>
+          <th>Finished</th>
+        </tr>
+      </thead>
+      <tbody>
+        {$jobsRows}
+      </tbody>
+    </table>
+
+    <h2>Agents</h2>
+    <table border="1" cellpadding="6" cellspacing="0">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Created</th>
+          <th>Last Seen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {$agentRows}
+      </tbody>
+    </table>
+  </main>
+</body>
+</html>
+HTML;
+
+    return fennec_html_response(200, $body);
 }
 
 function fennec_readiness_response(): array
@@ -443,6 +727,152 @@ function fennec_parse_json(?string $body): ?array
     return $decoded;
 }
 
+/**
+ * @return array<string, string>
+ */
+function fennec_parse_form(?string $body): array
+{
+    if ($body === null || trim($body) === '') {
+        return [];
+    }
+
+    $parsed = [];
+    parse_str($body, $parsed);
+    if (!is_array($parsed)) {
+        return [];
+    }
+
+    $clean = [];
+    foreach ($parsed as $key => $value) {
+        if (is_string($key) && is_scalar($value)) {
+            $clean[$key] = trim((string) $value);
+        }
+    }
+
+    return $clean;
+}
+
+function fennec_session_bootstrap(): void
+{
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        return;
+    }
+
+    if (headers_sent()) {
+        return;
+    }
+
+    session_name('fennec_session');
+
+    $isSecure = false;
+    $https = $_SERVER['HTTPS'] ?? '';
+    if (is_string($https) && $https !== '' && strtolower($https) !== 'off') {
+        $isSecure = true;
+    }
+
+    $forwarded = $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '';
+    if (!$isSecure && is_string($forwarded) && strtolower($forwarded) === 'https') {
+        $isSecure = true;
+    }
+
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => $isSecure,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    session_start();
+}
+
+function fennec_session_set(string $key, mixed $value): void
+{
+    if (!isset($_SESSION) || !is_array($_SESSION)) {
+        $_SESSION = [];
+    }
+
+    $_SESSION[$key] = $value;
+}
+
+function fennec_session_get(string $key): mixed
+{
+    if (!isset($_SESSION) || !is_array($_SESSION)) {
+        return null;
+    }
+
+    return $_SESSION[$key] ?? null;
+}
+
+function fennec_session_clear(): void
+{
+    $_SESSION = [];
+}
+
+function fennec_session_admin_id(): ?int
+{
+    $raw = fennec_session_get('admin_id');
+    if (is_int($raw) && $raw > 0) {
+        return $raw;
+    }
+
+    if (is_string($raw) && ctype_digit($raw)) {
+        $value = (int) $raw;
+        return $value > 0 ? $value : null;
+    }
+
+    return null;
+}
+
+function fennec_generate_csrf_token(): string
+{
+    try {
+        return bin2hex(random_bytes(16));
+    } catch (Throwable $exception) {
+        return bin2hex((string) microtime(true));
+    }
+}
+
+function fennec_ensure_csrf_token(): string
+{
+    $token = fennec_session_get('csrf_token');
+    if (is_string($token) && $token !== '') {
+        return $token;
+    }
+
+    $token = fennec_generate_csrf_token();
+    fennec_session_set('csrf_token', $token);
+
+    return $token;
+}
+
+function fennec_csrf_valid(mixed $token): bool
+{
+    if (!is_string($token) || $token === '') {
+        return false;
+    }
+
+    $known = fennec_session_get('csrf_token');
+    if (!is_string($known) || $known === '') {
+        return false;
+    }
+
+    return hash_equals($known, $token);
+}
+
+function fennec_escape_html(string $value): string
+{
+    return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+function fennec_nullable_string(mixed $value): string
+{
+    if ($value === null) {
+        return '-';
+    }
+
+    return (string) $value;
+}
+
 function fennec_is_terminal_job_status(mixed $status): bool
 {
     return is_string($status) && in_array($status, ['succeeded', 'failed'], true);
@@ -510,6 +940,7 @@ function fennec_emit_response(array $response): void
 }
 
 if (PHP_SAPI !== 'cli') {
+    fennec_session_bootstrap();
     $response = fennec_route(
         $_SERVER['REQUEST_METHOD'] ?? 'GET',
         $_SERVER['REQUEST_URI'] ?? '/',

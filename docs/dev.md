@@ -40,6 +40,24 @@ make db-wait
 make migrate
 ```
 
+Create an admin account for UI login:
+
+```bash
+COMPOSE_PROFILES=db docker compose run --rm --user $(id -u):$(id -g) \
+  -e HOME=/tmp -e COMPOSER_CACHE_DIR=/tmp/composer-cache \
+  -e FENNEC_DB_DSN="pgsql:host=db;port=5432;dbname=fennec" \
+  -e FENNEC_DB_USER=fennec -e FENNEC_DB_PASSWORD=fennec-dev \
+  php85 php bin/fennec create-admin --email=admin@example.test --password=change-me
+```
+
+Open the login page in your browser:
+
+```text
+http://localhost:8080/login
+```
+
+The controller is mapped to host port `8080` in `compose.yaml`.
+
 For faster lease-expiry proofs:
 
 ```bash

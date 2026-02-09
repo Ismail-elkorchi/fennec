@@ -26,8 +26,8 @@ final class JobAgentFlowDbTest extends TestCase
 
         $before = $jobs->findById($job['id']);
         $this->assertNotNull($before);
-        $beforeLease = strtotime((string) $before['lease_expires_at']);
-        $this->assertNotFalse($beforeLease);
+        $beforeLease = (string) $before['lease_expires_at'];
+        $this->assertNotSame('', $beforeLease);
 
         usleep(200000);
 
@@ -45,15 +45,15 @@ final class JobAgentFlowDbTest extends TestCase
 
         $payload = json_decode($heartbeat['body'], true);
         $this->assertIsArray($payload);
-        $afterLease = strtotime((string) $payload['job']['lease_expires_at']);
-        $this->assertNotFalse($afterLease);
-        $this->assertGreaterThan($beforeLease, $afterLease);
+        $afterLease = (string) $payload['job']['lease_expires_at'];
+        $this->assertNotSame('', $afterLease);
+        $this->assertGreaterThan(0, strcmp($afterLease, $beforeLease));
 
         $stored = $jobs->findById($job['id']);
         $this->assertNotNull($stored);
-        $storedLease = strtotime((string) $stored['lease_expires_at']);
-        $this->assertNotFalse($storedLease);
-        $this->assertGreaterThan($beforeLease, $storedLease);
+        $storedLease = (string) $stored['lease_expires_at'];
+        $this->assertNotSame('', $storedLease);
+        $this->assertGreaterThan(0, strcmp($storedLease, $beforeLease));
         $this->assertSame('running', $stored['status']);
         $this->assertSame($agent['agent_id'], $stored['locked_by_agent_id']);
     }
