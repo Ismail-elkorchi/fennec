@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-IMAGE="stoplight/spectral:6.15.0"
+IMAGE="stoplight/spectral:6.15.1"
 RULESET=".spectral.yaml"
 SPEC_PATH="docs/api/openapi.yaml"
 

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-IMAGE="davidanson/markdownlint-cli2:v0.20.0"
+IMAGE="davidanson/markdownlint-cli2:v0.21.0"
 CONFIG=".markdownlint.yaml"
 PATTERNS=(
   "docs/**/*.md"
