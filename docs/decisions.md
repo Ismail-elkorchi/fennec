@@ -44,7 +44,7 @@ Local tests must be reproducible on Ubuntu 25.10 without relying on host PHP/Go 
 ### Decision
 - Use Docker Engine from the official Docker apt repository for local dev/testing on Ubuntu 25.10.
 - Run PHP tests in a container built from `php:${PHP_VERSION}-cli-trixie`.
-- Run Go tests in `golang:1.25.7-trixie`.
+- Run Go tests in `golang:1.26.0-trixie`.
 - Use `compose.yaml` and Makefile targets to run tests via `docker compose run --rm`.
 - If Docker requires sudo, fix group membership before running development commands.
 
@@ -85,12 +85,12 @@ Fennec needs a small, reliable control plane with a privileged agent. The WebUI 
 
 ### Decision
 - Controller (API + WebUI) is written in PHP >= 8.4, with pure PHP server-rendered UI. Primary tested version is PHP 8.5.
-- Agent is written in Go 1.25.x and is the only privileged component.
+- Agent is written in Go 1.26.x and is the only privileged component.
 - Controller <-> Agent uses HTTP+JSON with mTLS; agent pulls jobs.
 - PostgreSQL 18.x is the primary state store.
 - Jobs queue is DB-backed in PostgreSQL.
 - NGINX stable is the reverse proxy.
-- Migration tooling lives in a separate repository and uses Go 1.25.x as a single-binary CLI.
+- Migration tooling lives in a separate repository and uses Go 1.26.x as a single-binary CLI.
 
 ### Alternatives Considered
 - Controller in Go or Node.js instead of PHP.
@@ -100,11 +100,11 @@ Fennec needs a small, reliable control plane with a privileged agent. The WebUI 
 ### Evidence
 - `composer.json` requires PHP >= 8.4.
 - CI is pinned to PHP 8.5 as the primary tested version.
-- `agent/go.mod` specifies Go 1.25.x.
+- `agent/go.mod` specifies Go 1.26.x.
 
 ### Falsifiers
 - PHP 8.4 becomes unsupported for required dependencies.
-- Go 1.25.x becomes unavailable or incompatible with target OSes.
+- Go 1.26.x becomes unavailable or incompatible with target OSes.
 - Operational needs demand a dedicated queue or different proxy.
 
 ### Unknowns
@@ -129,8 +129,8 @@ Tooling support for the most recent OpenAPI versions is still uneven.
 - Standardize error responses on RFC 9457 Problem Details (`application/problem+json`).
 - Define baseline security schemes in the contract: session cookie, bearer token, and mutual TLS for agents.
 - Enforce linting via Docker-pinned tools:
-  - Spectral (`stoplight/spectral:6.15.0`) for OpenAPI.
-  - markdownlint-cli2 (`davidanson/markdownlint-cli2:v0.20.0`) for Markdown.
+  - Spectral (`stoplight/spectral:6.15.1`) for OpenAPI.
+  - markdownlint-cli2 (`davidanson/markdownlint-cli2:v0.21.0`) for Markdown.
 - CI runs `make lint` to ensure the contract and docs remain consistent.
 
 ### Alternatives Considered
@@ -163,7 +163,7 @@ Tooling support for the most recent OpenAPI versions is still uneven.
 
 ---
 
-## ADR-0005: Controller Persistence: Postgres 18.1 + PDO + SQL Migrations
+## ADR-0005: Controller Persistence: Postgres 18.2 + PDO + SQL Migrations
 Status: Accepted
 Date: 2026-02-05
 
@@ -173,7 +173,7 @@ We want predictable local development using Docker, with migration history track
 Authentication bootstrap requires a safe password hashing baseline.
 
 ### Decision
-- Use PostgreSQL 18.1 (Debian trixie) in development via Docker compose profile `db`.
+- Use PostgreSQL 18.2 (Debian trixie) in development via Docker compose profile `db`.
 - Use PDO directly with strict error handling and prepared statements only.
 - Maintain schema changes through ordered SQL migration files.
 - Adopt RFC 9457 Problem Details for readiness errors and use `/readyz` to reflect DB availability.
@@ -190,7 +190,7 @@ Authentication bootstrap requires a safe password hashing baseline.
 - PDO avoids framework lock-in but leaves more manual query code to maintain.
 
 ### Evidence
-- `compose.yaml` defines a pinned `postgres:18.1-trixie` profile service with health checks.
+- `compose.yaml` defines a pinned `postgres:18.2-trixie` profile service with health checks.
 - `migrations/001_init.sql` establishes schema_migrations, users, and audit_events.
 - `bin/fennec` provides a migration runner and admin bootstrap command.
 - `/readyz` checks DB connectivity to separate readiness from liveness.
@@ -198,7 +198,7 @@ Authentication bootstrap requires a safe password hashing baseline.
   https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
 
 ### Falsifiers
-- PostgreSQL 18.1 becomes incompatible with deployment targets or introduces blocking issues.
+- PostgreSQL 18.2 becomes incompatible with deployment targets or introduces blocking issues.
 - PDO becomes a bottleneck for safety or maintainability compared to a lightweight DBAL.
 - Operational evidence shows a different engine is required for scaling or compatibility.
 

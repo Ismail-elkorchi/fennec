@@ -40,7 +40,7 @@ services:
     working_dir: /app
 
   go:
-    image: golang:1.25.7-trixie
+    image: golang:1.26.0-trixie
     volumes:
       - ./:/app
     working_dir: /app

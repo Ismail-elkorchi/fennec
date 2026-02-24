@@ -15,7 +15,7 @@ This document pins the baseline tech choices for Fennec.
 - Background jobs: PHP CLI worker as a systemd service
 
 ## Agent
-- Language: Go 1.25.x
+- Language: Go 1.26.x
 - Runs privileged on nodes
 - Pulls jobs from controller (long-poll), executes, reports results
 - Controller <-> Agent transport: HTTP+JSON with mTLS
