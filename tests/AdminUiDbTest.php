@@ -67,6 +67,93 @@ final class AdminUiDbTest extends TestCase
         $this->assertStringContainsString('Agents', $response['body']);
     }
 
+    public function testAuthenticatedAdminCanViewAgentsPages(): void
+    {
+        if (getenv('FENNEC_DB_DSN') === false) {
+            $this->fail('Database environment not configured.');
+        }
+
+        $config = Config::fromEnv();
+        $db = Database::connect($config);
+
+        $db->execute('DELETE FROM jobs');
+        $db->execute('DELETE FROM agents');
+        $db->execute('DELETE FROM audit_events');
+        $db->execute('DELETE FROM users');
+
+        $creator = new AdminCreator($db, $config);
+        $adminId = $creator->createAdmin('admin+' . bin2hex(random_bytes(4)) . '@example.test', 'correct-horse-battery-staple');
+
+        $agents = new AgentRepository($db, $config);
+        $agent = $agents->create('admin-ui-agent-' . bin2hex(random_bytes(3)));
+        $agentId = (int) $agent['agent_id'];
+
+        $_SESSION = [
+            'admin_id' => $adminId,
+            'csrf_token' => 'csrf-test-token',
+        ];
+
+        $index = fennec_route('GET', '/admin/agents');
+        $this->assertSame(200, $index['status']);
+        $this->assertStringContainsString('Agents List', $index['body']);
+        $this->assertStringContainsString('agent-row-' . $agentId, $index['body']);
+        $this->assertStringContainsString((string) $agentId, $index['body']);
+        $this->assertNoSecretsInHtml($index['body']);
+
+        $detail = fennec_route('GET', '/admin/agents/' . $agentId);
+        $this->assertSame(200, $detail['status']);
+        $this->assertStringContainsString('Agent Details', $detail['body']);
+        $this->assertStringContainsString('data-agent-id="' . $agentId . '"', $detail['body']);
+        $this->assertNoSecretsInHtml($detail['body']);
+    }
+
+    public function testAuthenticatedAdminCanViewJobsPages(): void
+    {
+        if (getenv('FENNEC_DB_DSN') === false) {
+            $this->fail('Database environment not configured.');
+        }
+
+        $config = Config::fromEnv();
+        $db = Database::connect($config);
+
+        $db->execute('DELETE FROM jobs');
+        $db->execute('DELETE FROM agents');
+        $db->execute('DELETE FROM audit_events');
+        $db->execute('DELETE FROM users');
+
+        $creator = new AdminCreator($db, $config);
+        $adminId = $creator->createAdmin('admin+' . bin2hex(random_bytes(4)) . '@example.test', 'correct-horse-battery-staple');
+
+        $agents = new AgentRepository($db, $config);
+        $agent = $agents->create('admin-ui-agent-' . bin2hex(random_bytes(3)));
+
+        $jobs = new JobRepository($db);
+        $job = $jobs->enqueue('noop', ['from' => 'admin-ui-test']);
+        $jobs->claimNext($agent['agent_id'], $agents, $config->jobLeaseSeconds());
+        $jobId = (int) $job['id'];
+
+        $_SESSION = [
+            'admin_id' => $adminId,
+            'csrf_token' => 'csrf-test-token',
+        ];
+
+        $index = fennec_route('GET', '/admin/jobs');
+        $this->assertSame(200, $index['status']);
+        $this->assertStringContainsString('Jobs List', $index['body']);
+        $this->assertStringContainsString('job-row-' . $jobId, $index['body']);
+        $this->assertNoSecretsInHtml($index['body']);
+        $this->assertStringNotContainsString('payload', strtolower($index['body']));
+        $this->assertStringNotContainsString('result', strtolower($index['body']));
+
+        $detail = fennec_route('GET', '/admin/jobs/' . $jobId);
+        $this->assertSame(200, $detail['status']);
+        $this->assertStringContainsString('Job Details', $detail['body']);
+        $this->assertStringContainsString('data-job-id="' . $jobId . '"', $detail['body']);
+        $this->assertNoSecretsInHtml($detail['body']);
+        $this->assertStringNotContainsString('payload', strtolower($detail['body']));
+        $this->assertStringNotContainsString('result', strtolower($detail['body']));
+    }
+
     public function testLoginRegeneratesSessionIdAndRedirectsToAdmin(): void
     {
         if (getenv('FENNEC_DB_DSN') === false) {
@@ -120,5 +207,14 @@ final class AdminUiDbTest extends TestCase
         $_SESSION = [];
         session_unset();
         session_destroy();
+    }
+
+    private function assertNoSecretsInHtml(string $html): void
+    {
+        $this->assertDoesNotMatchRegularExpression('/\\b\\d+\\.[A-Za-z0-9_-]{10,}\\b/', $html);
+        $this->assertStringNotContainsString('token_hash', $html);
+        $this->assertStringNotContainsString('password_hash', $html);
+        $this->assertStringNotContainsString('FENNEC_DB_PASSWORD', $html);
+        $this->assertStringNotContainsString('Bearer ', $html);
     }
 }

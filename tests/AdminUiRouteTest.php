@@ -26,6 +26,22 @@ final class AdminUiRouteTest extends TestCase
         $this->assertSame('/login', $response['headers']['Location']);
     }
 
+    public function testUnauthenticatedAdminPagesRedirectToLogin(): void
+    {
+        $paths = [
+            '/admin/agents',
+            '/admin/agents/1',
+            '/admin/jobs',
+            '/admin/jobs/1',
+        ];
+
+        foreach ($paths as $path) {
+            $response = fennec_route('GET', $path);
+            $this->assertSame(302, $response['status'], 'Expected redirect for ' . $path);
+            $this->assertSame('/login', $response['headers']['Location'], 'Expected /login for ' . $path);
+        }
+    }
+
     public function testLoginPostRejectsMissingCsrfToken(): void
     {
         $response = fennec_route('POST', '/login', [

@@ -55,6 +55,22 @@ function fennec_route(string $method, string $path, array $options = []): array
         return fennec_admin_dashboard();
     }
 
+    if ($method === 'GET' && $normalizedPath === '/admin/agents') {
+        return fennec_admin_agents_index();
+    }
+
+    if ($method === 'GET' && preg_match('#^/admin/agents/(\\d+)$#', $normalizedPath, $matches)) {
+        return fennec_admin_agent_detail((int) $matches[1]);
+    }
+
+    if ($method === 'GET' && $normalizedPath === '/admin/jobs') {
+        return fennec_admin_jobs_index();
+    }
+
+    if ($method === 'GET' && preg_match('#^/admin/jobs/(\\d+)$#', $normalizedPath, $matches)) {
+        return fennec_admin_job_detail((int) $matches[1]);
+    }
+
     if ($method === 'POST' && $normalizedPath === '/agent/v1/jobs/claim') {
         return fennec_agent_claim($headers);
     }
@@ -339,8 +355,9 @@ function fennec_admin_dashboard(): array
     $csrfToken = fennec_ensure_csrf_token();
     $jobsRows = '';
     foreach ($jobs as $job) {
+        $jobId = (int) $job['id'];
         $jobsRows .= '<tr>';
-        $jobsRows .= '<td>' . fennec_escape_html((string) $job['id']) . '</td>';
+        $jobsRows .= '<td><a href="/admin/jobs/' . $jobId . '">' . fennec_escape_html((string) $jobId) . '</a></td>';
         $jobsRows .= '<td>' . fennec_escape_html((string) $job['type']) . '</td>';
         $jobsRows .= '<td>' . fennec_escape_html((string) $job['status']) . '</td>';
         $jobsRows .= '<td>' . fennec_escape_html((string) $job['attempt']) . '</td>';
@@ -355,8 +372,9 @@ function fennec_admin_dashboard(): array
 
     $agentRows = '';
     foreach ($agents as $agent) {
+        $agentId = (int) $agent['id'];
         $agentRows .= '<tr>';
-        $agentRows .= '<td>' . fennec_escape_html((string) $agent['id']) . '</td>';
+        $agentRows .= '<td><a href="/admin/agents/' . $agentId . '">' . fennec_escape_html((string) $agentId) . '</a></td>';
         $agentRows .= '<td>' . fennec_escape_html((string) $agent['name']) . '</td>';
         $agentRows .= '<td>' . fennec_escape_html(fennec_nullable_string($agent['created_at'])) . '</td>';
         $agentRows .= '<td>' . fennec_escape_html(fennec_nullable_string($agent['last_seen_at'] ?? null)) . '</td>';
@@ -387,6 +405,10 @@ function fennec_admin_dashboard(): array
       <a href="/openapi.yaml">OpenAPI</a> |
       <a href="/healthz">Healthz</a> |
       <a href="/readyz">Readyz</a>
+    </p>
+    <p>
+      <a href="/admin/jobs">All Jobs</a> |
+      <a href="/admin/agents">All Agents</a>
     </p>
 
     <h2>Recent Jobs</h2>
@@ -421,6 +443,347 @@ function fennec_admin_dashboard(): array
         {$agentRows}
       </tbody>
     </table>
+  </main>
+</body>
+</html>
+HTML;
+
+    return fennec_html_response(200, $body);
+}
+
+/**
+ * @return array{
+ *   db:\Fennec\Database,
+ *   admin:array{id:int,email:string}
+ * }|array{
+ *   response:array{status:int,headers:array<string,string>,body:string}
+ * }
+ */
+function fennec_admin_context(): array
+{
+    $adminId = fennec_session_admin_id();
+    if ($adminId === null) {
+        return ['response' => fennec_redirect_response('/login')];
+    }
+
+    $guard = fennec_db_guard();
+    if (isset($guard['error'])) {
+        return ['response' => $guard['error']];
+    }
+
+    try {
+        $admin = $guard['db']->fetchOne(
+            "SELECT id, email\n" .
+            "FROM users\n" .
+            "WHERE id = :id AND role = 'admin' AND disabled = false\n" .
+            "LIMIT 1",
+            [':id' => $adminId]
+        );
+    } catch (Throwable $exception) {
+        return [
+            'response' => fennec_problem_response(
+                503,
+                'Database unavailable',
+                'Admin dashboard failed.',
+                FENNEC_PROBLEM_DB_UNAVAILABLE
+            ),
+        ];
+    }
+
+    if ($admin === null) {
+        fennec_session_clear();
+        return ['response' => fennec_redirect_response('/login')];
+    }
+
+    return [
+        'db' => $guard['db'],
+        'admin' => [
+            'id' => (int) $admin['id'],
+            'email' => (string) $admin['email'],
+        ],
+    ];
+}
+
+function fennec_admin_agents_index(): array
+{
+    $context = fennec_admin_context();
+    if (isset($context['response'])) {
+        return $context['response'];
+    }
+
+    try {
+        $agents = $context['db']->fetchAll(
+            "SELECT id, name, created_at, last_seen_at\n" .
+            "FROM agents\n" .
+            "ORDER BY id DESC\n" .
+            "LIMIT 100"
+        );
+    } catch (Throwable $exception) {
+        return fennec_problem_response(
+            503,
+            'Database unavailable',
+            'Admin agents list failed.',
+            FENNEC_PROBLEM_DB_UNAVAILABLE
+        );
+    }
+
+    $rows = '';
+    foreach ($agents as $agent) {
+        $agentId = (int) $agent['id'];
+        $rows .= '<tr data-agent-row="agent-row-' . $agentId . '">';
+        $rows .= '<td><a href="/admin/agents/' . $agentId . '">' . fennec_escape_html((string) $agentId) . '</a></td>';
+        $rows .= '<td>' . fennec_escape_html((string) $agent['name']) . '</td>';
+        $rows .= '<td>' . fennec_escape_html(fennec_nullable_string($agent['created_at'])) . '</td>';
+        $rows .= '<td>' . fennec_escape_html(fennec_nullable_string($agent['last_seen_at'] ?? null)) . '</td>';
+        $rows .= '</tr>';
+    }
+    if ($rows === '') {
+        $rows = '<tr><td colspan="4">No agents yet.</td></tr>';
+    }
+
+    $adminEmail = fennec_escape_html($context['admin']['email']);
+    $body = <<<HTML
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fennec Admin Agents</title>
+</head>
+<body>
+  <main style="max-width: 980px; margin: 2rem auto; font-family: sans-serif;">
+    <h1>Fennec Admin</h1>
+    <p>Signed in as {$adminEmail}</p>
+    <p><a href="/admin">Dashboard</a> | <a href="/admin/jobs">Jobs List</a></p>
+    <h2>Agents List</h2>
+    <table border="1" cellpadding="6" cellspacing="0">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Created</th>
+          <th>Last Seen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {$rows}
+      </tbody>
+    </table>
+  </main>
+</body>
+</html>
+HTML;
+
+    return fennec_html_response(200, $body);
+}
+
+function fennec_admin_agent_detail(int $agentId): array
+{
+    $context = fennec_admin_context();
+    if (isset($context['response'])) {
+        return $context['response'];
+    }
+
+    try {
+        $agent = $context['db']->fetchOne(
+            "SELECT id, name, created_at, last_seen_at\n" .
+            "FROM agents\n" .
+            "WHERE id = :id\n" .
+            "LIMIT 1",
+            [':id' => $agentId]
+        );
+    } catch (Throwable $exception) {
+        return fennec_problem_response(
+            503,
+            'Database unavailable',
+            'Admin agent detail failed.',
+            FENNEC_PROBLEM_DB_UNAVAILABLE
+        );
+    }
+
+    if ($agent === null) {
+        return fennec_problem_response(404, 'Not found', 'Agent not found.');
+    }
+
+    $adminEmail = fennec_escape_html($context['admin']['email']);
+    $safeAgentId = fennec_escape_html((string) (int) $agent['id']);
+    $safeName = fennec_escape_html((string) $agent['name']);
+    $safeCreatedAt = fennec_escape_html(fennec_nullable_string($agent['created_at']));
+    $safeLastSeenAt = fennec_escape_html(fennec_nullable_string($agent['last_seen_at'] ?? null));
+
+    $body = <<<HTML
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fennec Admin Agent Detail</title>
+</head>
+<body>
+  <main style="max-width: 980px; margin: 2rem auto; font-family: sans-serif;">
+    <h1>Fennec Admin</h1>
+    <p>Signed in as {$adminEmail}</p>
+    <p><a href="/admin">Dashboard</a> | <a href="/admin/agents">Agents List</a></p>
+    <h2>Agent Details</h2>
+    <div data-agent-id="{$safeAgentId}">
+      <p><strong>ID:</strong> {$safeAgentId}</p>
+      <p><strong>Name:</strong> {$safeName}</p>
+      <p><strong>Created:</strong> {$safeCreatedAt}</p>
+      <p><strong>Last Seen:</strong> {$safeLastSeenAt}</p>
+    </div>
+  </main>
+</body>
+</html>
+HTML;
+
+    return fennec_html_response(200, $body);
+}
+
+function fennec_admin_jobs_index(): array
+{
+    $context = fennec_admin_context();
+    if (isset($context['response'])) {
+        return $context['response'];
+    }
+
+    try {
+        $jobs = $context['db']->fetchAll(
+            "SELECT id, type, status, attempt, created_at, scheduled_at, started_at, finished_at, last_error\n" .
+            "FROM jobs\n" .
+            "ORDER BY id DESC\n" .
+            "LIMIT 100"
+        );
+    } catch (Throwable $exception) {
+        return fennec_problem_response(
+            503,
+            'Database unavailable',
+            'Admin jobs list failed.',
+            FENNEC_PROBLEM_DB_UNAVAILABLE
+        );
+    }
+
+    $rows = '';
+    foreach ($jobs as $job) {
+        $jobId = (int) $job['id'];
+        $rows .= '<tr data-job-row="job-row-' . $jobId . '">';
+        $rows .= '<td><a href="/admin/jobs/' . $jobId . '">' . fennec_escape_html((string) $jobId) . '</a></td>';
+        $rows .= '<td>' . fennec_escape_html((string) $job['type']) . '</td>';
+        $rows .= '<td>' . fennec_escape_html((string) $job['status']) . '</td>';
+        $rows .= '<td>' . fennec_escape_html((string) $job['attempt']) . '</td>';
+        $rows .= '<td>' . fennec_escape_html(fennec_nullable_string($job['created_at'])) . '</td>';
+        $rows .= '<td>' . fennec_escape_html(fennec_nullable_string($job['scheduled_at'] ?? null)) . '</td>';
+        $rows .= '<td>' . fennec_escape_html(fennec_nullable_string($job['started_at'])) . '</td>';
+        $rows .= '<td>' . fennec_escape_html(fennec_nullable_string($job['finished_at'])) . '</td>';
+        $rows .= '</tr>';
+    }
+    if ($rows === '') {
+        $rows = '<tr><td colspan="8">No jobs yet.</td></tr>';
+    }
+
+    $adminEmail = fennec_escape_html($context['admin']['email']);
+    $body = <<<HTML
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fennec Admin Jobs</title>
+</head>
+<body>
+  <main style="max-width: 980px; margin: 2rem auto; font-family: sans-serif;">
+    <h1>Fennec Admin</h1>
+    <p>Signed in as {$adminEmail}</p>
+    <p><a href="/admin">Dashboard</a> | <a href="/admin/agents">Agents List</a></p>
+    <h2>Jobs List</h2>
+    <table border="1" cellpadding="6" cellspacing="0">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Attempt</th>
+          <th>Created</th>
+          <th>Scheduled</th>
+          <th>Started</th>
+          <th>Finished</th>
+        </tr>
+      </thead>
+      <tbody>
+        {$rows}
+      </tbody>
+    </table>
+  </main>
+</body>
+</html>
+HTML;
+
+    return fennec_html_response(200, $body);
+}
+
+function fennec_admin_job_detail(int $jobId): array
+{
+    $context = fennec_admin_context();
+    if (isset($context['response'])) {
+        return $context['response'];
+    }
+
+    try {
+        $job = $context['db']->fetchOne(
+            "SELECT id, type, status, attempt, created_at, scheduled_at, started_at, finished_at, last_error\n" .
+            "FROM jobs\n" .
+            "WHERE id = :id\n" .
+            "LIMIT 1",
+            [':id' => $jobId]
+        );
+    } catch (Throwable $exception) {
+        return fennec_problem_response(
+            503,
+            'Database unavailable',
+            'Admin job detail failed.',
+            FENNEC_PROBLEM_DB_UNAVAILABLE
+        );
+    }
+
+    if ($job === null) {
+        return fennec_problem_response(404, 'Not found', 'Job not found.');
+    }
+
+    $adminEmail = fennec_escape_html($context['admin']['email']);
+    $safeJobId = fennec_escape_html((string) (int) $job['id']);
+    $safeType = fennec_escape_html((string) $job['type']);
+    $safeStatus = fennec_escape_html((string) $job['status']);
+    $safeAttempt = fennec_escape_html((string) $job['attempt']);
+    $safeCreatedAt = fennec_escape_html(fennec_nullable_string($job['created_at']));
+    $safeScheduledAt = fennec_escape_html(fennec_nullable_string($job['scheduled_at'] ?? null));
+    $safeStartedAt = fennec_escape_html(fennec_nullable_string($job['started_at']));
+    $safeFinishedAt = fennec_escape_html(fennec_nullable_string($job['finished_at']));
+    $safeLastError = fennec_escape_html(fennec_nullable_string($job['last_error'] ?? null));
+
+    $body = <<<HTML
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fennec Admin Job Detail</title>
+</head>
+<body>
+  <main style="max-width: 980px; margin: 2rem auto; font-family: sans-serif;">
+    <h1>Fennec Admin</h1>
+    <p>Signed in as {$adminEmail}</p>
+    <p><a href="/admin">Dashboard</a> | <a href="/admin/jobs">Jobs List</a></p>
+    <h2>Job Details</h2>
+    <div data-job-id="{$safeJobId}">
+      <p><strong>ID:</strong> {$safeJobId}</p>
+      <p><strong>Type:</strong> {$safeType}</p>
+      <p><strong>Status:</strong> {$safeStatus}</p>
+      <p><strong>Attempt:</strong> {$safeAttempt}</p>
+      <p><strong>Created:</strong> {$safeCreatedAt}</p>
+      <p><strong>Scheduled:</strong> {$safeScheduledAt}</p>
+      <p><strong>Started:</strong> {$safeStartedAt}</p>
+      <p><strong>Finished:</strong> {$safeFinishedAt}</p>
+      <p><strong>Last Error:</strong> {$safeLastError}</p>
+    </div>
   </main>
 </body>
 </html>
