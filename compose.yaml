@@ -46,7 +46,7 @@ services:
     working_dir: /app
 
   db:
-    image: postgres:18.2-trixie
+    image: postgres:18.3-trixie
     profiles: ["db"]
     environment:
       POSTGRES_DB: fennec
